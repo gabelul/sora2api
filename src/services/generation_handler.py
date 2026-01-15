@@ -154,6 +154,52 @@ MODEL_CONFIG = {
         "model": "sy_ore",
         "size": "large",
         "require_pro": True
+    },
+    # Prompt enhancement models
+    "prompt-enhance-short-10s": {
+        "type": "prompt_enhance",
+        "expansion_level": "short",
+        "duration_s": 10
+    },
+    "prompt-enhance-short-15s": {
+        "type": "prompt_enhance",
+        "expansion_level": "short",
+        "duration_s": 15
+    },
+    "prompt-enhance-short-20s": {
+        "type": "prompt_enhance",
+        "expansion_level": "short",
+        "duration_s": 20
+    },
+    "prompt-enhance-medium-10s": {
+        "type": "prompt_enhance",
+        "expansion_level": "medium",
+        "duration_s": 10
+    },
+    "prompt-enhance-medium-15s": {
+        "type": "prompt_enhance",
+        "expansion_level": "medium",
+        "duration_s": 15
+    },
+    "prompt-enhance-medium-20s": {
+        "type": "prompt_enhance",
+        "expansion_level": "medium",
+        "duration_s": 20
+    },
+    "prompt-enhance-long-10s": {
+        "type": "prompt_enhance",
+        "expansion_level": "long",
+        "duration_s": 10
+    },
+    "prompt-enhance-long-15s": {
+        "type": "prompt_enhance",
+        "expansion_level": "long",
+        "duration_s": 15
+    },
+    "prompt-enhance-long-20s": {
+        "type": "prompt_enhance",
+        "expansion_level": "long",
+        "duration_s": 20
     }
 }
 
@@ -356,6 +402,13 @@ class GenerationHandler:
         model_config = MODEL_CONFIG[model]
         is_video = model_config["type"] == "video"
         is_image = model_config["type"] == "image"
+        is_prompt_enhance = model_config["type"] == "prompt_enhance"
+
+        # Handle prompt enhancement
+        if is_prompt_enhance:
+            async for chunk in self._handle_prompt_enhance(prompt, model_config, stream):
+                yield chunk
+            return
 
         # Non-streaming mode: only check availability
         if not stream:
@@ -1274,6 +1327,60 @@ class GenerationHandler:
             # Don't fail the request if logging fails
             print(f"Failed to log request: {e}")
             return None
+
+    # ==================== Prompt Enhancement Handler ====================
+
+    async def _handle_prompt_enhance(self, prompt: str, model_config: Dict, stream: bool) -> AsyncGenerator[str, None]:
+        """Handle prompt enhancement request
+
+        Args:
+            prompt: Original prompt to enhance
+            model_config: Model configuration
+            stream: Whether to stream response
+        """
+        expansion_level = model_config["expansion_level"]
+        duration_s = model_config["duration_s"]
+
+        # Select token
+        token_obj = await self.load_balancer.select_token(for_video_generation=True)
+        if not token_obj:
+            error_msg = "No available tokens for prompt enhancement"
+            if stream:
+                yield self._format_stream_chunk(reasoning_content=f"**Error:** {error_msg}", is_first=True)
+                yield self._format_stream_chunk(finish_reason="STOP")
+            else:
+                yield self._format_non_stream_response(error_msg)
+            return
+
+        try:
+            # Call enhance_prompt API
+            enhanced_prompt = await self.sora_client.enhance_prompt(
+                prompt=prompt,
+                token=token_obj.token,
+                expansion_level=expansion_level,
+                duration_s=duration_s,
+                token_id=token_obj.id
+            )
+
+            if stream:
+                # Stream response
+                yield self._format_stream_chunk(
+                    content=enhanced_prompt,
+                    is_first=True
+                )
+                yield self._format_stream_chunk(finish_reason="STOP")
+            else:
+                # Non-stream response
+                yield self._format_non_stream_response(enhanced_prompt)
+
+        except Exception as e:
+            error_msg = f"Prompt enhancement failed: {str(e)}"
+            debug_logger.log_error(error_msg)
+            if stream:
+                yield self._format_stream_chunk(content=f"Error: {error_msg}", is_first=True)
+                yield self._format_stream_chunk(finish_reason="STOP")
+            else:
+                yield self._format_non_stream_response(error_msg)
 
     # ==================== Character Creation and Remix Handlers ====================
 
