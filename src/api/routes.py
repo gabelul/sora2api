@@ -1,5 +1,5 @@
 """API routes - OpenAI compatible endpoints"""
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Header
 from fastapi.responses import StreamingResponse, JSONResponse
 from datetime import datetime
 from typing import List
@@ -69,7 +69,8 @@ async def list_models(api_key: str = Depends(verify_api_key_header)):
 @router.post("/v1/chat/completions")
 async def create_chat_completion(
     request: ChatCompletionRequest,
-    api_key: str = Depends(verify_api_key_header)
+    api_key: str = Depends(verify_api_key_header),
+    x_sora2_async: bool = Header(False, alias="X-Sora2-Async", description="Enable asynchronous generation mode")
 ):
     """Create chat completion (unified endpoint for image and video generation)"""
     try:
@@ -134,6 +135,37 @@ async def create_chat_completion(
         # Check if this is a video model
         model_config = MODEL_CONFIG[request.model]
         is_video_model = model_config["type"] == "video"
+
+        # Check for async mode (applies to all video/image generation)
+        if x_sora2_async:
+            task_id = await generation_handler.submit_background_task(
+                model=request.model,
+                prompt=prompt,
+                image=image_data,
+                video=video_data,
+                remix_target_id=remix_target_id
+            )
+            
+            return {
+                "id": "chatcmpl-" + task_id,
+                "object": "chat.completion",
+                "created": int(datetime.now().timestamp()),
+                "model": request.model,
+                "choices": [{
+                    "index": 0,
+                    "message": {
+                        "role": "assistant",
+                        "content": f"Task submitted successfully. Task ID: {task_id}\n\nPlease check status at: GET /v1/tasks/{task_id}"
+                    },
+                    "finish_reason": "stop"
+                }],
+                "usage": {
+                    "prompt_tokens": 0,
+                    "completion_tokens": 0,
+                    "total_tokens": 0
+                },
+                "task_id": task_id
+            }
 
         # For video models with video parameter, we need streaming
         if is_video_model and (video_data or remix_target_id):
@@ -255,3 +287,36 @@ async def create_chat_completion(
                 }
             }
         )
+
+@router.get("/v1/tasks/{task_id}")
+async def get_task_status(
+    task_id: str,
+    api_key: str = Depends(verify_api_key_header)
+):
+    """Get task status for async generation"""
+    if not generation_handler or not generation_handler.db:
+        raise HTTPException(status_code=500, detail="Service not initialized")
+    
+    task = await generation_handler.db.get_task(task_id)
+    if not task:
+        raise HTTPException(status_code=404, detail="Task not found")
+    
+    response = {
+        "id": task.task_id,
+        "status": task.status,
+        "progress": f"{int(task.progress)}%" if task.status == "processing" else "100%",
+        "created_at": task.created_at.isoformat() if task.created_at else None,
+        "model": task.model,
+        "prompt": task.prompt
+    }
+
+    if task.status in ["completed", "success"]:
+        try:
+            if task.result_urls:
+                response["result_urls"] = json.loads(task.result_urls)
+        except:
+            response["result_urls"] = task.result_urls
+    elif task.status == "failed":
+        response["error"] = task.error_message
+
+    return response

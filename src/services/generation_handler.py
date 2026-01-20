@@ -330,6 +330,251 @@ class GenerationHandler:
         token_obj = await self.load_balancer.select_token(for_image_generation=is_image, for_video_generation=is_video)
         return token_obj is not None
 
+    async def submit_background_task(self, model: str, prompt: str,
+                                     image: Optional[str] = None,
+                                     video: Optional[str] = None,
+                                     remix_target_id: Optional[str] = None) -> str:
+        """Submit a task for background processing and return task ID immediately"""
+        start_time = time.time()
+        
+        # Validate model
+        if model not in MODEL_CONFIG:
+            raise ValueError(f"Invalid model: {model}")
+
+        model_config = MODEL_CONFIG[model]
+        is_video = model_config["type"] == "video"
+        is_image = model_config["type"] == "image"
+        require_pro = model_config.get("require_pro", False)
+
+        # Select token
+        token_obj = await self.load_balancer.select_token(
+            for_image_generation=is_image,
+            for_video_generation=is_video,
+            require_pro=require_pro
+        )
+        
+        if not token_obj:
+            if require_pro:
+                raise Exception("No available Pro tokens. Pro models require a ChatGPT Pro subscription.")
+            elif is_image:
+                raise Exception("No available tokens for image generation.")
+            else:
+                raise Exception("No available tokens for video generation.")
+
+        # Acquire locks/concurrency slots
+        if is_image:
+            lock_acquired = await self.load_balancer.token_lock.acquire_lock(token_obj.id)
+            if not lock_acquired:
+                raise Exception(f"Failed to acquire lock for token {token_obj.id}")
+
+            if self.concurrency_manager:
+                concurrency_acquired = await self.concurrency_manager.acquire_image(token_obj.id)
+                if not concurrency_acquired:
+                    await self.load_balancer.token_lock.release_lock(token_obj.id)
+                    raise Exception(f"Failed to acquire concurrency slot for token {token_obj.id}")
+
+        if is_video and self.concurrency_manager:
+            concurrency_acquired = await self.concurrency_manager.acquire_video(token_obj.id)
+            if not concurrency_acquired:
+                raise Exception(f"Failed to acquire concurrency slot for token {token_obj.id}")
+
+        try:
+            # Upload image if provided
+            media_id = None
+            if image:
+                image_data = self._decode_base64_image(image)
+                media_id = await self.sora_client.upload_image(image_data, token_obj.token, token_id=token_obj.id)
+
+            task_id = None
+            
+            if is_video:
+                n_frames = model_config.get("n_frames", 300)
+                clean_prompt, style_id = self._extract_style(prompt)
+
+                if self.sora_client.is_storyboard_prompt(clean_prompt):
+                    formatted_prompt = self.sora_client.format_storyboard_prompt(clean_prompt)
+                    task_id = await self.sora_client.generate_storyboard(
+                        formatted_prompt, token_obj.token,
+                        orientation=model_config["orientation"],
+                        media_id=media_id,
+                        n_frames=n_frames,
+                        style_id=style_id,
+                        token_id=token_obj.id
+                    )
+                else:
+                    sora_model = model_config.get("model", "sy_8")
+                    video_size = model_config.get("size", "small")
+                    task_id = await self.sora_client.generate_video(
+                        clean_prompt, token_obj.token,
+                        orientation=model_config["orientation"],
+                        media_id=media_id,
+                        n_frames=n_frames,
+                        style_id=style_id,
+                        model=sora_model,
+                        size=video_size,
+                        token_id=token_obj.id
+                    )
+            else:
+                task_id = await self.sora_client.generate_image(
+                    prompt, token_obj.token,
+                    width=model_config["width"],
+                    height=model_config["height"],
+                    media_id=media_id,
+                    token_id=token_obj.id
+                )
+
+            # Create task record
+            task = Task(
+                task_id=task_id,
+                token_id=token_obj.id,
+                model=model,
+                prompt=prompt,
+                status="processing",
+                progress=0.0
+            )
+            await self.db.create_task(task)
+
+            # Create log entry
+            log_id = await self._log_request(
+                token_obj.id,
+                f"generate_{model_config['type']}_async",
+                {"model": model, "prompt": prompt, "has_image": image is not None},
+                {}, 
+                -1, -1.0, task_id=task_id
+            )
+
+            # Record usage
+            await self.token_manager.record_usage(token_obj.id, is_video=is_video)
+
+            # Start background polling
+            asyncio.create_task(self.handle_background_generation(
+                task_id=task_id,
+                token=token_obj.token,
+                token_id=token_obj.id,
+                is_video=is_video,
+                is_image=is_image,
+                prompt=prompt,
+                model=model,
+                log_id=log_id,
+                start_time=start_time
+            ))
+
+            return task_id
+
+        except Exception as e:
+            # Release resources on error
+            if is_image:
+                await self.load_balancer.token_lock.release_lock(token_obj.id)
+                if self.concurrency_manager:
+                    await self.concurrency_manager.release_image(token_obj.id)
+            if is_video and self.concurrency_manager:
+                await self.concurrency_manager.release_video(token_obj.id)
+            raise e
+
+    async def handle_background_generation(self, task_id: str, token: str, token_id: int,
+                                           is_video: bool, is_image: bool, prompt: str, model: str,
+                                           log_id: int, start_time: float):
+        """Handle background generation polling and result processing"""
+        try:
+            timeout = config.video_timeout if is_video else config.image_timeout
+            poll_interval = config.poll_interval
+            max_attempts = int(timeout / poll_interval)
+
+            for attempt in range(max_attempts):
+                elapsed_time = time.time() - start_time
+                if elapsed_time > timeout:
+                    await self.db.update_task(task_id, "failed", 0, 
+                                              error_message=f"Generation timeout after {elapsed_time:.1f} seconds")
+                    break
+
+                await asyncio.sleep(poll_interval)
+
+                try:
+                    if is_video:
+                        pending_tasks = await self.sora_client.get_pending_tasks(token, token_id=token_id)
+                        task_found = False
+                        
+                        for task in pending_tasks:
+                            if task.get("id") == task_id:
+                                task_found = True
+                                progress_pct = task.get("progress_pct") or 0
+                                progress_pct = int(progress_pct * 100)
+                                await self.db.update_task(task_id, "processing", progress_pct)
+                                break
+
+                        if not task_found:
+                            # Task completed - fetch from drafts
+                            result = await self.sora_client.get_video_drafts(token, token_id=token_id)
+                            items = result.get("items", [])
+
+                            for item in items:
+                                if item.get("task_id") == task_id:
+                                    url = item.get("url") or item.get("downloadable_url")
+                                    reason_str = item.get("reason_str") or item.get("markdown_reason_str")
+                                    
+                                    if url:
+                                        result_urls = json.dumps([url])
+                                        await self.db.update_task(task_id, "completed", 100, result_urls=result_urls)
+                                        await self.token_manager.record_success(token_id, is_video=True)
+                                    else:
+                                        error_msg = reason_str or "Generation failed - no video URL"
+                                        await self.db.update_task(task_id, "failed", 0, error_message=error_msg)
+                                    break
+                            break
+                    else:
+                        # Image generation
+                        status = await self.sora_client.get_task_status(task_id, token, token_id=token_id)
+                        if status.get("status") == "complete":
+                            url = status.get("result", {}).get("url")
+                            if url:
+                                result_urls = json.dumps([url])
+                                await self.db.update_task(task_id, "completed", 100, result_urls=result_urls)
+                                await self.token_manager.record_success(token_id, is_video=False)
+                            break
+                        elif status.get("status") == "failed":
+                            await self.db.update_task(task_id, "failed", 0, 
+                                                      error_message=status.get("error", "Generation failed"))
+                            break
+                        else:
+                            progress = status.get("progress", 0)
+                            await self.db.update_task(task_id, "processing", int(progress * 100))
+
+                except Exception as e:
+                    debug_logger.log_error(error_message=f"Background poll error: {e}", status_code=500, response_text=str(e))
+                    continue
+
+        except Exception as e:
+            debug_logger.log_error(error_message=f"Background generation error: {e}", status_code=500, response_text=str(e))
+            await self.db.update_task(task_id, "failed", 0, error_message=str(e))
+        finally:
+            # Release resources
+            if is_image:
+                await self.load_balancer.token_lock.release_lock(token_id)
+                if self.concurrency_manager:
+                    await self.concurrency_manager.release_image(token_id)
+            if is_video and self.concurrency_manager:
+                await self.concurrency_manager.release_video(token_id)
+
+            # Update log
+            duration = time.time() - start_time
+            task_info = await self.db.get_task(task_id)
+            if log_id and task_info:
+                response_data = {
+                    "task_id": task_id,
+                    "status": task_info.status,
+                    "prompt": prompt,
+                    "model": model
+                }
+                if task_info.result_urls:
+                    try:
+                        response_data["result_urls"] = json.loads(task_info.result_urls)
+                    except:
+                        response_data["result_urls"] = task_info.result_urls
+                
+                status_code = 200 if task_info.status == "completed" else 500
+                await self.db.update_request_log(log_id, response_body=json.dumps(response_data),
+                                                  status_code=status_code, duration=duration)
+
     async def handle_generation(self, model: str, prompt: str,
                                image: Optional[str] = None,
                                video: Optional[str] = None,
@@ -790,7 +1035,7 @@ class GenerationHandler:
                                             reasoning_content=f"**Content Policy Violation**\n\n{reason_str}\n"
                                         )
                                         yield self._format_stream_chunk(
-                                            content=f"❌ 生成失败: {reason_str}",
+                                            content=f"❌ Generation failed: {reason_str}",
                                             finish_reason="STOP"
                                         )
                                         yield "data: [DONE]\n\n"

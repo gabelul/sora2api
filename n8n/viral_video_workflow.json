@@ -1,0 +1,603 @@
+{
+    "name": "Viral AI Video Generator",
+    "nodes": [
+        {
+            "parameters": {},
+            "id": "trigger",
+            "name": "Manual Trigger",
+            "type": "n8n-nodes-base.manualTrigger",
+            "typeVersion": 1,
+            "position": [
+                0,
+                0
+            ]
+        },
+        {
+            "parameters": {
+                "assignments": {
+                    "assignments": [
+                        {
+                            "id": "topic",
+                            "name": "topic",
+                            "value": "A mysterious cat exploring an ancient temple",
+                            "type": "string"
+                        },
+                        {
+                            "id": "num_scenes",
+                            "name": "num_scenes",
+                            "value": "3",
+                            "type": "string"
+                        },
+                        {
+                            "id": "sora2api_url",
+                            "name": "sora2api_url",
+                            "value": "http://YOUR_SERVER:8000",
+                            "type": "string"
+                        },
+                        {
+                            "id": "sora2api_key",
+                            "name": "sora2api_key",
+                            "value": "YOUR_API_KEY",
+                            "type": "string"
+                        },
+                        {
+                            "id": "openai_key",
+                            "name": "openai_key",
+                            "value": "YOUR_OPENAI_KEY",
+                            "type": "string"
+                        }
+                    ]
+                },
+                "options": {}
+            },
+            "id": "config",
+            "name": "Config",
+            "type": "n8n-nodes-base.set",
+            "typeVersion": 3.4,
+            "position": [
+                220,
+                0
+            ]
+        },
+        {
+            "parameters": {
+                "method": "POST",
+                "url": "https://api.openai.com/v1/chat/completions",
+                "sendHeaders": true,
+                "headerParameters": {
+                    "parameters": [
+                        {
+                            "name": "Authorization",
+                            "value": "=Bearer {{ $json.openai_key }}"
+                        },
+                        {
+                            "name": "Content-Type",
+                            "value": "application/json"
+                        }
+                    ]
+                },
+                "sendBody": true,
+                "specifyBody": "json",
+                "jsonBody": "={\n  \"model\": \"gpt-4o\",\n  \"messages\": [\n    {\n      \"role\": \"system\",\n      \"content\": \"You are a viral video script writer. Generate scene descriptions for AI video generation. Each scene should be a detailed visual description (2-3 sentences) that works well for AI image and video generation. Focus on dramatic, cinematic, visually striking scenes. Output ONLY a JSON array of scene objects with 'image_prompt' and 'video_prompt' fields. The image_prompt should describe a still frame. The video_prompt should describe motion/action for that scene.\"\n    },\n    {\n      \"role\": \"user\",\n      \"content\": \"Create {{ $json.num_scenes }} scenes for this concept: {{ $json.topic }}\"\n    }\n  ],\n  \"response_format\": { \"type\": \"json_object\" }\n}",
+                "options": {}
+            },
+            "id": "generate_script",
+            "name": "Generate Script",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [
+                440,
+                0
+            ]
+        },
+        {
+            "parameters": {
+                "jsCode": "// Parse the script from GPT response\nconst response = $input.first().json;\nconst content = response.choices[0].message.content;\nconst parsed = JSON.parse(content);\n\n// Get scenes array (handle different response formats)\nconst scenes = parsed.scenes || parsed;\n\n// Pass config through\nconst config = $('Config').first().json;\n\nreturn scenes.map((scene, index) => ({\n  json: {\n    scene_number: index + 1,\n    image_prompt: scene.image_prompt,\n    video_prompt: scene.video_prompt,\n    sora2api_url: config.sora2api_url,\n    sora2api_key: config.sora2api_key\n  }\n}));"
+            },
+            "id": "parse_script",
+            "name": "Parse Script",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                660,
+                0
+            ]
+        },
+        {
+            "parameters": {
+                "method": "POST",
+                "url": "={{ $json.sora2api_url }}/v1/chat/completions",
+                "sendHeaders": true,
+                "headerParameters": {
+                    "parameters": [
+                        {
+                            "name": "Authorization",
+                            "value": "=Bearer {{ $json.sora2api_key }}"
+                        },
+                        {
+                            "name": "Content-Type",
+                            "value": "application/json"
+                        },
+                        {
+                            "name": "X-Sora2-Async",
+                            "value": "true"
+                        }
+                    ]
+                },
+                "sendBody": true,
+                "specifyBody": "json",
+                "jsonBody": "={\n  \"model\": \"gpt-image-landscape\",\n  \"messages\": [\n    {\n      \"role\": \"user\",\n      \"content\": \"{{ $json.image_prompt }}\"\n    }\n  ]\n}",
+                "options": {}
+            },
+            "id": "submit_image",
+            "name": "Submit Image Task",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [
+                880,
+                0
+            ]
+        },
+        {
+            "parameters": {
+                "jsCode": "// Extract task_id and prepare for polling\nconst response = $input.first().json;\nconst prev = $('Parse Script').first().json;\n\nreturn [{\n  json: {\n    ...prev,\n    image_task_id: response.task_id,\n    poll_count: 0\n  }\n}];"
+            },
+            "id": "extract_image_task",
+            "name": "Extract Image Task ID",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                1100,
+                0
+            ]
+        },
+        {
+            "parameters": {
+                "amount": 15,
+                "unit": "seconds"
+            },
+            "id": "wait_image",
+            "name": "Wait 15s",
+            "type": "n8n-nodes-base.wait",
+            "typeVersion": 1.1,
+            "position": [
+                1320,
+                0
+            ],
+            "webhookId": "image-wait"
+        },
+        {
+            "parameters": {
+                "method": "GET",
+                "url": "={{ $json.sora2api_url }}/v1/tasks/{{ $json.image_task_id }}",
+                "sendHeaders": true,
+                "headerParameters": {
+                    "parameters": [
+                        {
+                            "name": "Authorization",
+                            "value": "=Bearer {{ $json.sora2api_key }}"
+                        }
+                    ]
+                },
+                "options": {}
+            },
+            "id": "poll_image",
+            "name": "Poll Image Status",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [
+                1540,
+                0
+            ]
+        },
+        {
+            "parameters": {
+                "conditions": {
+                    "options": {
+                        "caseSensitive": true,
+                        "leftValue": "",
+                        "typeValidation": "strict"
+                    },
+                    "conditions": [
+                        {
+                            "id": "completed",
+                            "leftValue": "={{ $json.status }}",
+                            "rightValue": "completed",
+                            "operator": {
+                                "type": "string",
+                                "operation": "equals"
+                            }
+                        }
+                    ],
+                    "combinator": "and"
+                },
+                "options": {}
+            },
+            "id": "check_image_done",
+            "name": "Image Done?",
+            "type": "n8n-nodes-base.if",
+            "typeVersion": 2,
+            "position": [
+                1760,
+                0
+            ]
+        },
+        {
+            "parameters": {
+                "jsCode": "// Image completed - prepare for video generation\nconst status = $input.first().json;\nconst prev = $('Extract Image Task ID').first().json;\n\nconst imageUrl = status.result_urls ? status.result_urls[0] : null;\n\nreturn [{\n  json: {\n    ...prev,\n    image_url: imageUrl,\n    image_status: 'completed'\n  }\n}];"
+            },
+            "id": "prepare_video",
+            "name": "Prepare Video Gen",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                1980,
+                -100
+            ]
+        },
+        {
+            "parameters": {
+                "jsCode": "// Not done yet - loop back\nconst status = $input.first().json;\nconst prev = $('Extract Image Task ID').first().json;\n\nconst pollCount = (prev.poll_count || 0) + 1;\n\n// Max 40 polls (10 minutes)\nif (pollCount > 40) {\n  throw new Error('Image generation timeout');\n}\n\nreturn [{\n  json: {\n    ...prev,\n    poll_count: pollCount,\n    last_status: status.status,\n    last_progress: status.progress\n  }\n}];"
+            },
+            "id": "image_loop",
+            "name": "Increment Poll",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                1980,
+                100
+            ]
+        },
+        {
+            "parameters": {
+                "method": "POST",
+                "url": "={{ $json.sora2api_url }}/v1/chat/completions",
+                "sendHeaders": true,
+                "headerParameters": {
+                    "parameters": [
+                        {
+                            "name": "Authorization",
+                            "value": "=Bearer {{ $json.sora2api_key }}"
+                        },
+                        {
+                            "name": "Content-Type",
+                            "value": "application/json"
+                        },
+                        {
+                            "name": "X-Sora2-Async",
+                            "value": "true"
+                        }
+                    ]
+                },
+                "sendBody": true,
+                "specifyBody": "json",
+                "jsonBody": "={\n  \"model\": \"sora2-landscape-10s\",\n  \"messages\": [\n    {\n      \"role\": \"user\",\n      \"content\": [\n        {\n          \"type\": \"text\",\n          \"text\": \"{{ $json.video_prompt }}\"\n        },\n        {\n          \"type\": \"image_url\",\n          \"image_url\": {\n            \"url\": \"{{ $json.image_url }}\"\n          }\n        }\n      ]\n    }\n  ]\n}",
+                "options": {}
+            },
+            "id": "submit_video",
+            "name": "Submit Video Task",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [
+                2200,
+                -100
+            ]
+        },
+        {
+            "parameters": {
+                "jsCode": "// Extract video task_id\nconst response = $input.first().json;\nconst prev = $('Prepare Video Gen').first().json;\n\nreturn [{\n  json: {\n    ...prev,\n    video_task_id: response.task_id,\n    video_poll_count: 0\n  }\n}];"
+            },
+            "id": "extract_video_task",
+            "name": "Extract Video Task ID",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                2420,
+                -100
+            ]
+        },
+        {
+            "parameters": {
+                "amount": 30,
+                "unit": "seconds"
+            },
+            "id": "wait_video",
+            "name": "Wait 30s",
+            "type": "n8n-nodes-base.wait",
+            "typeVersion": 1.1,
+            "position": [
+                2640,
+                -100
+            ],
+            "webhookId": "video-wait"
+        },
+        {
+            "parameters": {
+                "method": "GET",
+                "url": "={{ $json.sora2api_url }}/v1/tasks/{{ $json.video_task_id }}",
+                "sendHeaders": true,
+                "headerParameters": {
+                    "parameters": [
+                        {
+                            "name": "Authorization",
+                            "value": "=Bearer {{ $json.sora2api_key }}"
+                        }
+                    ]
+                },
+                "options": {}
+            },
+            "id": "poll_video",
+            "name": "Poll Video Status",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [
+                2860,
+                -100
+            ]
+        },
+        {
+            "parameters": {
+                "conditions": {
+                    "options": {
+                        "caseSensitive": true,
+                        "leftValue": "",
+                        "typeValidation": "strict"
+                    },
+                    "conditions": [
+                        {
+                            "id": "completed",
+                            "leftValue": "={{ $json.status }}",
+                            "rightValue": "completed",
+                            "operator": {
+                                "type": "string",
+                                "operation": "equals"
+                            }
+                        }
+                    ],
+                    "combinator": "and"
+                },
+                "options": {}
+            },
+            "id": "check_video_done",
+            "name": "Video Done?",
+            "type": "n8n-nodes-base.if",
+            "typeVersion": 2,
+            "position": [
+                3080,
+                -100
+            ]
+        },
+        {
+            "parameters": {
+                "jsCode": "// Video completed!\nconst status = $input.first().json;\nconst prev = $('Extract Video Task ID').first().json;\n\nconst videoUrl = status.result_urls ? status.result_urls[0] : null;\n\nreturn [{\n  json: {\n    scene_number: prev.scene_number,\n    image_prompt: prev.image_prompt,\n    video_prompt: prev.video_prompt,\n    image_url: prev.image_url,\n    video_url: videoUrl,\n    status: 'completed'\n  }\n}];"
+            },
+            "id": "final_output",
+            "name": "Final Output",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                3300,
+                -200
+            ]
+        },
+        {
+            "parameters": {
+                "jsCode": "// Not done yet - loop back\nconst status = $input.first().json;\nconst prev = $('Extract Video Task ID').first().json;\n\nconst pollCount = (prev.video_poll_count || 0) + 1;\n\n// Max 40 polls (20 minutes)\nif (pollCount > 40) {\n  throw new Error('Video generation timeout');\n}\n\nreturn [{\n  json: {\n    ...prev,\n    video_poll_count: pollCount,\n    last_video_status: status.status,\n    last_video_progress: status.progress\n  }\n}];"
+            },
+            "id": "video_loop",
+            "name": "Increment Video Poll",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                3300,
+                0
+            ]
+        }
+    ],
+    "connections": {
+        "Manual Trigger": {
+            "main": [
+                [
+                    {
+                        "node": "Config",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Config": {
+            "main": [
+                [
+                    {
+                        "node": "Generate Script",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Generate Script": {
+            "main": [
+                [
+                    {
+                        "node": "Parse Script",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Parse Script": {
+            "main": [
+                [
+                    {
+                        "node": "Submit Image Task",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Submit Image Task": {
+            "main": [
+                [
+                    {
+                        "node": "Extract Image Task ID",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Extract Image Task ID": {
+            "main": [
+                [
+                    {
+                        "node": "Wait 15s",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Wait 15s": {
+            "main": [
+                [
+                    {
+                        "node": "Poll Image Status",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Poll Image Status": {
+            "main": [
+                [
+                    {
+                        "node": "Image Done?",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Image Done?": {
+            "main": [
+                [
+                    {
+                        "node": "Prepare Video Gen",
+                        "type": "main",
+                        "index": 0
+                    }
+                ],
+                [
+                    {
+                        "node": "Increment Poll",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Prepare Video Gen": {
+            "main": [
+                [
+                    {
+                        "node": "Submit Video Task",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Increment Poll": {
+            "main": [
+                [
+                    {
+                        "node": "Wait 15s",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Submit Video Task": {
+            "main": [
+                [
+                    {
+                        "node": "Extract Video Task ID",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Extract Video Task ID": {
+            "main": [
+                [
+                    {
+                        "node": "Wait 30s",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Wait 30s": {
+            "main": [
+                [
+                    {
+                        "node": "Poll Video Status",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Poll Video Status": {
+            "main": [
+                [
+                    {
+                        "node": "Video Done?",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Video Done?": {
+            "main": [
+                [
+                    {
+                        "node": "Final Output",
+                        "type": "main",
+                        "index": 0
+                    }
+                ],
+                [
+                    {
+                        "node": "Increment Video Poll",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Increment Video Poll": {
+            "main": [
+                [
+                    {
+                        "node": "Wait 30s",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        }
+    },
+    "settings": {
+        "executionOrder": "v1"
+    }
+}
