@@ -518,19 +518,19 @@ class TokenManager:
 
                 # Check if response is empty
                 if not response_text or response_text.strip() == "":
-                    debug_logger.log_info(f"[ST_TO_AT] ❌ 响应体为空")
+                    debug_logger.log_info(f"[ST_TO_AT] ❌ Response body is empty")
                     raise ValueError("Response body is empty")
 
                 try:
                     data = response.json()
                 except Exception as json_err:
-                    debug_logger.log_info(f"[ST_TO_AT] ❌ JSON解析失败: {str(json_err)}")
-                    debug_logger.log_info(f"[ST_TO_AT] 原始响应: {response_text[:1000]}")
+                    debug_logger.log_info(f"[ST_TO_AT] ❌ JSON parsing failed: {str(json_err)}")
+                    debug_logger.log_info(f"[ST_TO_AT] Raw response: {response_text[:1000]}")
                     raise ValueError(f"Failed to parse JSON response: {str(json_err)}")
 
                 # Check if data is None
                 if data is None:
-                    debug_logger.log_info(f"[ST_TO_AT] ❌ 响应JSON为空")
+                    debug_logger.log_info(f"[ST_TO_AT] ❌ Response JSON is empty")
                     raise ValueError("Response JSON is empty")
 
                 access_token = data.get("accessToken")
@@ -539,8 +539,8 @@ class TokenManager:
 
                 # Check required fields
                 if not access_token:
-                    debug_logger.log_info(f"[ST_TO_AT] ❌ 响应中缺少 accessToken 字段")
-                    debug_logger.log_info(f"[ST_TO_AT] 响应数据: {data}")
+                    debug_logger.log_info(f"[ST_TO_AT] ❌ Missing accessToken field in response")
+                    debug_logger.log_info(f"[ST_TO_AT] Response data: {data}")
                     raise ValueError("Missing accessToken in response")
 
                 debug_logger.log_info(f"[ST_TO_AT] ✅ ST 转换成功")
@@ -612,19 +612,19 @@ class TokenManager:
 
                 # Check if response is empty
                 if not response_text or response_text.strip() == "":
-                    debug_logger.log_info(f"[RT_TO_AT] ❌ 响应体为空")
+                    debug_logger.log_info(f"[RT_TO_AT] ❌ Response body is empty")
                     raise ValueError("Response body is empty")
 
                 try:
                     data = response.json()
                 except Exception as json_err:
-                    debug_logger.log_info(f"[RT_TO_AT] ❌ JSON解析失败: {str(json_err)}")
-                    debug_logger.log_info(f"[RT_TO_AT] 原始响应: {response_text[:1000]}")
+                    debug_logger.log_info(f"[RT_TO_AT] ❌ JSON parsing failed: {str(json_err)}")
+                    debug_logger.log_info(f"[RT_TO_AT] Raw response: {response_text[:1000]}")
                     raise ValueError(f"Failed to parse JSON response: {str(json_err)}")
 
                 # Check if data is None
                 if data is None:
-                    debug_logger.log_info(f"[RT_TO_AT] ❌ 响应JSON为空")
+                    debug_logger.log_info(f"[RT_TO_AT] ❌ Response JSON is empty")
                     raise ValueError("Response JSON is empty")
 
                 access_token = data.get("access_token")
@@ -633,8 +633,8 @@ class TokenManager:
 
                 # Check required fields
                 if not access_token:
-                    debug_logger.log_info(f"[RT_TO_AT] ❌ 响应中缺少 access_token 字段")
-                    debug_logger.log_info(f"[RT_TO_AT] 响应数据: {data}")
+                    debug_logger.log_info(f"[RT_TO_AT] ❌ Missing access_token field in response")
+                    debug_logger.log_info(f"[RT_TO_AT] Response data: {data}")
                     raise ValueError("Missing access_token in response")
 
                 debug_logger.log_info(f"[RT_TO_AT] ✅ RT 转换成功")

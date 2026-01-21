@@ -154,6 +154,52 @@ MODEL_CONFIG = {
         "model": "sy_ore",
         "size": "large",
         "require_pro": True
+    },
+    # Prompt enhancement models
+    "prompt-enhance-short-10s": {
+        "type": "prompt_enhance",
+        "expansion_level": "short",
+        "duration_s": 10
+    },
+    "prompt-enhance-short-15s": {
+        "type": "prompt_enhance",
+        "expansion_level": "short",
+        "duration_s": 15
+    },
+    "prompt-enhance-short-20s": {
+        "type": "prompt_enhance",
+        "expansion_level": "short",
+        "duration_s": 20
+    },
+    "prompt-enhance-medium-10s": {
+        "type": "prompt_enhance",
+        "expansion_level": "medium",
+        "duration_s": 10
+    },
+    "prompt-enhance-medium-15s": {
+        "type": "prompt_enhance",
+        "expansion_level": "medium",
+        "duration_s": 15
+    },
+    "prompt-enhance-medium-20s": {
+        "type": "prompt_enhance",
+        "expansion_level": "medium",
+        "duration_s": 20
+    },
+    "prompt-enhance-long-10s": {
+        "type": "prompt_enhance",
+        "expansion_level": "long",
+        "duration_s": 10
+    },
+    "prompt-enhance-long-15s": {
+        "type": "prompt_enhance",
+        "expansion_level": "long",
+        "duration_s": 15
+    },
+    "prompt-enhance-long-20s": {
+        "type": "prompt_enhance",
+        "expansion_level": "long",
+        "duration_s": 20
     }
 }
 
