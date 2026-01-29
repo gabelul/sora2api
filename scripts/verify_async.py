@@ -29,7 +29,11 @@ def test_async_generation():
         response = requests.post(f"{API_URL}/v1/chat/completions", headers=headers, json=payload)
         
         if response.status_code != 200:
-            print(f"Failed to submit task. Status: {response.status_code}")
+            if response.status_code == 500 and "No available tokens" in response.text:
+                print("✅ API is reachable! (Error expected: No tokens in DB)")
+                print("ℹ️  To fully test generation, add tokens at http://localhost:8000/manage")
+                return
+            print(f"❌ Failed to submit task. Status: {response.status_code}")
             print(response.text)
             return
 

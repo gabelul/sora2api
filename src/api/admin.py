@@ -187,9 +187,9 @@ async def get_tokens(token: str = Depends(verify_admin_token)) -> List[dict]:
         stats = await db.get_token_stats(token.id)
         result.append({
             "id": token.id,
-            "token": token.token,  # 完整的Access Token
-            "st": token.st,  # 完整的Session Token
-            "rt": token.rt,  # 完整的Refresh Token
+            "token": token.token,  # Complete Access Token
+            "st": token.st,  # Complete Session Token
+            "rt": token.rt,  # Complete Refresh Token
             "client_id": token.client_id,  # Client ID
             "proxy_url": token.proxy_url,  # Proxy URL
             "email": token.email,
@@ -204,21 +204,21 @@ async def get_tokens(token: str = Depends(verify_admin_token)) -> List[dict]:
             "image_count": stats.image_count if stats else 0,
             "video_count": stats.video_count if stats else 0,
             "error_count": stats.error_count if stats else 0,
-            # 订阅信息
+            # Subscription Info
             "plan_type": token.plan_type,
             "plan_title": token.plan_title,
             "subscription_end": token.subscription_end.isoformat() if token.subscription_end else None,
-            # Sora2信息
+            # Sora2 Info
             "sora2_supported": token.sora2_supported,
             "sora2_invite_code": token.sora2_invite_code,
             "sora2_redeemed_count": token.sora2_redeemed_count,
             "sora2_total_count": token.sora2_total_count,
             "sora2_remaining_count": token.sora2_remaining_count,
             "sora2_cooldown_until": token.sora2_cooldown_until.isoformat() if token.sora2_cooldown_until else None,
-            # 功能开关
+            # Feature Toggles
             "image_enabled": token.image_enabled,
             "video_enabled": token.video_enabled,
-            # 并发限制
+            # Concurrency Limits
             "image_concurrency": token.image_concurrency,
             "video_concurrency": token.video_concurrency
         })
@@ -249,12 +249,12 @@ async def add_token(request: AddTokenRequest, token: str = Depends(verify_admin_
                 image_concurrency=request.image_concurrency,
                 video_concurrency=request.video_concurrency
             )
-        return {"success": True, "message": "Token 添加成功", "token_id": new_token.id}
+        return {"success": True, "message": "Token added", "token_id": new_token.id}
     except ValueError as e:
         # Token already exists
         raise HTTPException(status_code=409, detail=str(e))
     except Exception as e:
-        raise HTTPException(status_code=400, detail=f"添加 Token 失败: {str(e)}")
+        raise HTTPException(status_code=400, detail=f"Add Token failed: {str(e)}")
 
 @router.post("/api/tokens/st2at")
 async def st_to_at(request: ST2ATRequest, token: str = Depends(verify_admin_token)):
@@ -383,7 +383,7 @@ async def batch_test_update(request: BatchDisableRequest = None, token: str = De
 
         return {
             "success": True,
-            "message": f"测试完成：成功 {success_count} 个，失败 {failed_count} 个",
+            "message": f"Test finished: Success {success_count}, Failed {failed_count}",
             "success_count": success_count,
             "failed_count": failed_count,
             "results": results
@@ -412,7 +412,7 @@ async def batch_enable_all(request: BatchDisableRequest = None, token: str = Dep
 
         return {
             "success": True,
-            "message": f"已启用 {enabled_count} 个Token",
+            "message": f"Enabled {enabled_count} tokens",
             "enabled_count": enabled_count
         }
     except Exception as e:
@@ -439,7 +439,7 @@ async def batch_delete_disabled(request: BatchDisableRequest = None, token: str 
 
         return {
             "success": True,
-            "message": f"已删除 {deleted_count} 个Token",
+            "message": f"Deleted {deleted_count} tokens",
             "deleted_count": deleted_count
         }
     except Exception as e:
@@ -456,7 +456,7 @@ async def batch_disable_selected(request: BatchDisableRequest, token: str = Depe
 
         return {
             "success": True,
-            "message": f"已禁用 {disabled_count} 个Token",
+            "message": f"Disabled {disabled_count} tokens",
             "disabled_count": disabled_count
         }
     except Exception as e:
@@ -476,7 +476,7 @@ async def batch_update_proxy(request: BatchUpdateProxyRequest, token: str = Depe
 
         return {
             "success": True,
-            "message": f"已更新 {updated_count} 个Token的代理",
+            "message": f"Updated proxy for {updated_count} tokens",
             "updated_count": updated_count
         }
     except Exception as e:
@@ -500,21 +500,21 @@ async def import_tokens(request: ImportTokensRequest, token: str = Depends(verif
             if mode == "offline":
                 # Offline mode: use provided AT, skip status update
                 if not import_item.access_token:
-                    raise ValueError("离线导入模式需要提供 access_token")
+                    raise ValueError("Offline import mode requires access_token")
                 access_token = import_item.access_token
                 skip_status = True
 
             elif mode == "at":
                 # AT mode: use provided AT, update status (current logic)
                 if not import_item.access_token:
-                    raise ValueError("AT导入模式需要提供 access_token")
+                    raise ValueError("AT import mode requires access_token")
                 access_token = import_item.access_token
                 skip_status = False
 
             elif mode == "st":
                 # ST mode: convert ST to AT, update status
                 if not import_item.session_token:
-                    raise ValueError("ST导入模式需要提供 session_token")
+                    raise ValueError("ST import mode requires session_token")
                 # Convert ST to AT
                 st_result = await token_manager.st_to_at(
                     import_item.session_token,
@@ -529,7 +529,7 @@ async def import_tokens(request: ImportTokensRequest, token: str = Depends(verif
             elif mode == "rt":
                 # RT mode: convert RT to AT, update status
                 if not import_item.refresh_token:
-                    raise ValueError("RT导入模式需要提供 refresh_token")
+                    raise ValueError("RT import mode requires refresh_token")
                 # Convert RT to AT
                 rt_result = await token_manager.rt_to_at(
                     import_item.refresh_token,
@@ -545,7 +545,7 @@ async def import_tokens(request: ImportTokensRequest, token: str = Depends(verif
                     import_item.email = rt_result["email"]
                 skip_status = False
             else:
-                raise ValueError(f"不支持的导入模式: {mode}")
+                raise ValueError(f"Unsupported import mode: {mode}")
 
             # Step 2: Check if token with this email already exists
             existing_token = await db.get_token_by_email(import_item.email)
@@ -896,7 +896,7 @@ async def clear_logs(token: str = Depends(verify_admin_token)):
     """Clear all logs"""
     try:
         await db.clear_all_logs()
-        return {"success": True, "message": "所有日志已清空"}
+        return {"success": True, "message": "All logs cleared"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -1129,14 +1129,14 @@ async def cancel_task(task_id: str, token: str = Depends(verify_admin_token)):
         # Get task from database
         task = await db.get_task(task_id)
         if not task:
-            raise HTTPException(status_code=404, detail="任务不存在")
+            raise HTTPException(status_code=404, detail="Task not found")
 
         # Check if task is still processing
         if task.status not in ["processing"]:
-            return {"success": False, "message": f"任务状态为 {task.status},无法取消"}
+            return {"success": False, "message": f"Task status is {task.status}, cannot cancel"}
 
         # Update task status to failed
-        await db.update_task(task_id, "failed", 0, error_message="用户手动取消任务")
+        await db.update_task(task_id, "failed", 0, error_message="User cancelled task manually")
 
         # Update request log if exists
         logs = await db.get_recent_logs(limit=1000)
@@ -1146,17 +1146,17 @@ async def cancel_task(task_id: str, token: str = Depends(verify_admin_token)):
                 duration = time.time() - (log.get("created_at").timestamp() if log.get("created_at") else time.time())
                 await db.update_request_log(
                     log.get("id"),
-                    response_body='{"error": "用户手动取消任务"}',
+                    response_body='{"error": "User cancelled task manually"}',
                     status_code=499,
                     duration=duration
                 )
                 break
 
-        return {"success": True, "message": "任务已取消"}
+        return {"success": True, "message": "Task cancelled"}
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"取消任务失败: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Cancel task failed: {str(e)}")
 
 # Debug logs download endpoint
 @router.get("/api/admin/logs/download")
@@ -1165,7 +1165,7 @@ async def download_debug_logs(token: str = Depends(verify_admin_token)):
     log_file = Path("logs.txt")
 
     if not log_file.exists():
-        raise HTTPException(status_code=404, detail="日志文件不存在")
+        raise HTTPException(status_code=404, detail="Log file not found")
 
     return FileResponse(
         path=str(log_file),

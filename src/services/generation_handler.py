@@ -1625,7 +1625,7 @@ class GenerationHandler:
 
             # Output character name immediately
             yield self._format_stream_chunk(
-                reasoning_content=f"✨ 角色已识别: {display_name} (@{username})\n"
+                reasoning_content=f"✨ Character identified: {display_name} (@{username})\n"
             )
 
             # Step 3: Download and cache avatar
@@ -1692,7 +1692,7 @@ class GenerationHandler:
 
             # Step 7: Return success message
             yield self._format_stream_chunk(
-                content=f"角色创建成功，角色名@{username}",
+                content=f"Character created successfully, username @{username}",
                 finish_reason="STOP"
             )
             yield "data: [DONE]\n\n"
@@ -2115,7 +2115,7 @@ class GenerationHandler:
                         status_code=500,
                         response_text=error_message
                     )
-                    raise Exception(f"角色创建失败: {error_message}")
+                    raise Exception(f"Character creation failed: {error_message}")
 
                 # Check if processing is complete
                 # Primary condition: status_message == "Completed" means processing is done

@@ -129,7 +129,7 @@ class TokenManager:
 
             if proxy_url:
                 kwargs["proxy"] = proxy_url
-                    print(f"🌐 Using proxy: {proxy_url}")
+                print(f"🌐 Using proxy: {proxy_url}")
 
             response = await session.get(url, **kwargs)
             print(f"📥 Response status code: {response.status_code}")
@@ -138,7 +138,7 @@ class TokenManager:
                 data = response.json()
                 print(f"📦 Response data: {data}")
 
-                # 提取第一个订阅信息
+                # Extract first subscription info
                 if data.get("data") and len(data["data"]) > 0:
                     subscription = data["data"][0]
                     plan = subscription.get("plan", {})
@@ -148,10 +148,10 @@ class TokenManager:
                         "plan_title": plan.get("title", ""),
                         "subscription_end": subscription.get("end_ts", "")
                     }
-                    print(f"✅ 订阅信息提取成功: {result}")
+                    print(f"✅ Subscription info extracted: {result}")
                     return result
 
-                print(f"⚠️  响应数据中没有订阅信息")
+                print(f"⚠️  No subscription info in response")
                 return {
                     "plan_type": "",
                     "plan_title": "",
@@ -166,7 +166,7 @@ class TokenManager:
                     error_data = response.json()
                     error_info = error_data.get("error", {})
                     if error_info.get("code") == "token_expired":
-                        raise Exception(f"Token已过期: {error_info.get('message', 'Token expired')}")
+                        raise Exception(f"Token Expired: {error_info.get('message', 'Token expired')}")
                 except ValueError:
                     pass
 
@@ -222,11 +222,11 @@ class TokenManager:
                     # Check for unsupported_country_code
                     if error_info.get("code") == "unsupported_country_code":
                         country = error_info.get("param", "未知")
-                        raise Exception(f"Sora在您的国家/地区不可用 ({country}): {error_info.get('message', '')}")
+                        raise Exception(f"Sora unavailable in your region ({country}): {error_info.get('message', '')}")
 
                     # Check if it's 401 unauthorized (token doesn't support Sora2)
                     if response.status_code == 401 and "Unauthorized" in error_info.get("message", ""):
-                        print(f"⚠️  Token不支持Sora2，尝试激活...")
+                        print(f"⚠️  Token doesn't support Sora2, trying to activate...")
 
                         # Try to activate Sora2
                         try:
@@ -236,7 +236,7 @@ class TokenManager:
                             )
 
                             if activate_response.status_code == 200:
-                                print(f"✅ Sora2激活请求成功，重新获取邀请码...")
+                                print(f"✅ Sora2 activation request success, retrying invite code...")
 
                                 # Retry getting invite code
                                 retry_response = await session.get(
@@ -246,7 +246,7 @@ class TokenManager:
 
                                 if retry_response.status_code == 200:
                                     retry_data = retry_response.json()
-                                    print(f"✅ Sora2激活成功！邀请码: {retry_data}")
+                                    print(f"✅ Sora2 activation success! Code: {retry_data}")
                                     return {
                                         "supported": True,
                                         "invite_code": retry_data.get("invite_code"),
@@ -254,11 +254,11 @@ class TokenManager:
                                         "total_count": retry_data.get("total_count", 0)
                                     }
                                 else:
-                                    print(f"⚠️  激活后仍无法获取邀请码: {retry_response.status_code}")
+                                    print(f"⚠️  Failed to get invite code after activation: {retry_response.status_code}")
                             else:
-                                print(f"⚠️  Sora2激活失败: {activate_response.status_code}")
+                                print(f"⚠️  Sora2 activation failed: {activate_response.status_code}")
                         except Exception as activate_e:
-                            print(f"⚠️  Sora2激活过程出错: {activate_e}")
+                            print(f"⚠️  Sora2 activation error: {activate_e}")
 
                         return {
                             "supported": False,
@@ -431,20 +431,20 @@ class TokenManager:
         proxy_url = await self.proxy_manager.get_proxy_url()
 
         print(f"🔍 Starting to activate Sora2 invite code: {invite_code}")
-        print(f"🔑 Access Token 前缀: {access_token[:50]}...")
+        print(f"🔑 Access Token Prefix: {access_token[:50]}...")
 
         async with AsyncSession() as session:
-            # 生成设备ID
+            # Generate Device ID
             device_id = str(uuid.uuid4())
 
-            # 只设置必要的头，让 impersonate 处理其他
+            # Set necessary headers, let impersonate handle others
             headers = {
                 "authorization": f"Bearer {access_token}",
                 "cookie": f"oai-did={device_id}"
             }
 
-            print(f"🆔 设备ID: {device_id}")
-            print(f"📦 请求体: {{'invite_code': '{invite_code}'}}")
+            print(f"🆔 Device ID: {device_id}")
+            print(f"📦 Request Body: {{'invite_code': '{invite_code}'}}")
 
             kwargs = {
                 "headers": headers,
@@ -543,9 +543,9 @@ class TokenManager:
                     debug_logger.log_info(f"[ST_TO_AT] Response data: {data}")
                     raise ValueError("Missing accessToken in response")
 
-                debug_logger.log_info(f"[ST_TO_AT] ✅ ST 转换成功")
+                debug_logger.log_info(f"[ST_TO_AT] ✅ ST converted successfully")
                 debug_logger.log_info(f"  - Email: {email}")
-                debug_logger.log_info(f"  - 过期时间: {expires}")
+                debug_logger.log_info(f"  - Expires: {expires}")
 
                 return {
                     "access_token": access_token,
@@ -553,7 +553,7 @@ class TokenManager:
                     "expires": expires
                 }
             except Exception as e:
-                debug_logger.log_info(f"[ST_TO_AT] 🔴 异常: {str(e)}")
+                debug_logger.log_info(f"[ST_TO_AT] 🔴 Exception: {str(e)}")
                 raise
     
     async def rt_to_at(self, refresh_token: str, client_id: Optional[str] = None, proxy_url: Optional[str] = None) -> dict:
@@ -637,9 +637,9 @@ class TokenManager:
                     debug_logger.log_info(f"[RT_TO_AT] Response data: {data}")
                     raise ValueError("Missing access_token in response")
 
-                debug_logger.log_info(f"[RT_TO_AT] ✅ RT 转换成功")
-                debug_logger.log_info(f"  - 新 Access Token 有效期: {expires_in} 秒")
-                debug_logger.log_info(f"  - Refresh Token 已更新: {'是' if new_refresh_token else '否'}")
+                debug_logger.log_info(f"[RT_TO_AT] ✅ RT converted successfully")
+                debug_logger.log_info(f"  - New Access Token Valid for: {expires_in} seconds")
+                debug_logger.log_info(f"  - Refresh Token Updated: {'Yes' if new_refresh_token else 'No'}")
 
                 return {
                     "access_token": access_token,
@@ -647,7 +647,7 @@ class TokenManager:
                     "expires_in": expires_in
                 }
             except Exception as e:
-                debug_logger.log_info(f"[RT_TO_AT] 🔴 异常: {str(e)}")
+                debug_logger.log_info(f"[RT_TO_AT] 🔴 Exception: {str(e)}")
                 raise
     
     async def add_token(self, token_value: str,
@@ -688,7 +688,7 @@ class TokenManager:
         existing_token = await self.db.get_token_by_value(token_value)
         if existing_token:
             if not update_if_exists:
-                raise ValueError(f"Token 已存在（邮箱: {existing_token.email}）。如需更新，请先删除旧 Token 或使用更新功能。")
+                raise ValueError(f"Token exists (Email: {existing_token.email}). Delete old token or use update.")
             # Update existing token
             return await self.update_existing_token(existing_token.id, token_value, st, rt, remark)
 
@@ -741,7 +741,7 @@ class TokenManager:
             except Exception as e:
                 error_msg = str(e)
                 # Re-raise if it's a critical error (token expired)
-                if "Token已过期" in error_msg:
+                if "Token Expired" in error_msg:
                     raise
                 # If API call fails, subscription info will be None
                 print(f"Failed to get subscription info: {e}")
@@ -763,13 +763,13 @@ class TokenManager:
                         remaining_info = await self.get_sora2_remaining_count(token_value, proxy_url=proxy_url)
                         if remaining_info.get("success"):
                             sora2_remaining_count = remaining_info.get("remaining_count", 0)
-                            print(f"✅ Sora2剩余次数: {sora2_remaining_count}")
+                            print(f"✅ Sora2 Remaining: {sora2_remaining_count}")
                     except Exception as e:
                         print(f"Failed to get Sora2 remaining count: {e}")
             except Exception as e:
                 error_msg = str(e)
                 # Re-raise if it's a critical error (unsupported country)
-                if "Sora在您的国家/地区不可用" in error_msg:
+                if "Sora unavailable in your region" in error_msg:
                     raise
                 # If API call fails, Sora2 info will be None
                 print(f"Failed to get Sora2 info: {e}")
@@ -1092,7 +1092,7 @@ class TokenManager:
                     if remaining_info.get("success"):
                         remaining_count = remaining_info.get("remaining_count", 0)
                         await self.db.update_token_sora2_remaining(token_id, remaining_count)
-                        print(f"✅ 更新Token {token_id} 的Sora2剩余次数: {remaining_count}")
+                        print(f"✅ Updated Token {token_id} Sora2 remaining: {remaining_count}")
 
                         # If remaining count is 1 or less, disable token and set cooldown
                         if remaining_count <= 1:
@@ -1100,10 +1100,10 @@ class TokenManager:
                             if reset_seconds > 0:
                                 cooldown_until = datetime.now() + timedelta(seconds=reset_seconds)
                                 await self.db.update_token_sora2_cooldown(token_id, cooldown_until)
-                                print(f"⏱️ Token {token_id} 剩余次数为{remaining_count}，设置冷却时间至: {cooldown_until}")
+                                print(f"⏱️ Token {token_id} remaining {remaining_count}, set cooldown until: {cooldown_until}")
                             # Disable token
                             await self.disable_token(token_id)
-                            print(f"🚫 Token {token_id} 剩余次数为{remaining_count}，已自动禁用")
+                            print(f"🚫 Token {token_id} remaining {remaining_count}, auto disabled")
             except Exception as e:
                 print(f"Failed to update Sora2 remaining count: {e}")
     
@@ -1116,7 +1116,7 @@ class TokenManager:
 
             # Check if Sora2 cooldown has expired
             if token_data.sora2_cooldown_until and token_data.sora2_cooldown_until <= datetime.now():
-                print(f"🔄 Token {token_id} Sora2冷却已过期，正在刷新剩余次数...")
+                print(f"🔄 Token {token_id} Sora2 cooldown expired, refreshing remaining count...")
 
                 try:
                     remaining_info = await self.get_sora2_remaining_count(token_data.token, token_id)
@@ -1125,7 +1125,7 @@ class TokenManager:
                         await self.db.update_token_sora2_remaining(token_id, remaining_count)
                         # Clear cooldown
                         await self.db.update_token_sora2_cooldown(token_id, None)
-                        print(f"✅ Token {token_id} Sora2剩余次数已刷新: {remaining_count}")
+                        print(f"✅ Token {token_id} Sora2 remaining refreshed: {remaining_count}")
                 except Exception as e:
                     print(f"Failed to refresh Sora2 remaining count: {e}")
         except Exception as e:
@@ -1139,7 +1139,7 @@ class TokenManager:
             True if refresh successful, False otherwise
         """
         try:
-            # 📍 Step 1: 获取Token数据
+            # 📍 Step 1: Get Token Data
             debug_logger.log_info(f"[AUTO_REFRESH] Starting to check Token {token_id}...")
             token_data = await self.db.get_token(token_id)
 
@@ -1147,33 +1147,32 @@ class TokenManager:
                 debug_logger.log_info(f"[AUTO_REFRESH] ❌ Token {token_id} does not exist")
                 return False
 
-            # 📍 Step 2: 检查是否有过期时间
             if not token_data.expiry_time:
-                debug_logger.log_info(f"[AUTO_REFRESH] ⏭️  Token {token_id} 无过期时间，跳过刷新")
+                debug_logger.log_info(f"[AUTO_REFRESH] ⏭️  Token {token_id} No expiry time, skipping")
                 return False  # No expiry time set
 
-            # 📍 Step 3: 计算剩余时间
+            # 📍 Step 3: Calc Remaining Time
             time_until_expiry = token_data.expiry_time - datetime.now()
             hours_until_expiry = time_until_expiry.total_seconds() / 3600
 
-            debug_logger.log_info(f"[AUTO_REFRESH] ⏰ Token {token_id} 信息:")
+            debug_logger.log_info(f"[AUTO_REFRESH] ⏰ Token {token_id} Info:")
             debug_logger.log_info(f"  - Email: {token_data.email}")
-            debug_logger.log_info(f"  - 过期时间: {token_data.expiry_time.strftime('%Y-%m-%d %H:%M:%S')}")
-            debug_logger.log_info(f"  - 剩余时间: {hours_until_expiry:.2f} 小时")
-            debug_logger.log_info(f"  - 是否激活: {token_data.is_active}")
-            debug_logger.log_info(f"  - 有ST: {'是' if token_data.st else '否'}")
-            debug_logger.log_info(f"  - 有RT: {'是' if token_data.rt else '否'}")
+            debug_logger.log_info(f"  - Expires: {token_data.expiry_time.strftime('%Y-%m-%d %H:%M:%S')}")
+            debug_logger.log_info(f"  - Remaining: {hours_until_expiry:.2f} Hours")
+            debug_logger.log_info(f"  - Active: {token_data.is_active}")
+            debug_logger.log_info(f"  - Has ST: {'Yes' if token_data.st else 'No'}")
+            debug_logger.log_info(f"  - Has RT: {'Yes' if token_data.rt else 'No'}")
 
-            # 📍 Step 4: 检查是否需要刷新
+            # 📍 Step 4: Check if refresh needed
             if hours_until_expiry > 24:
-                debug_logger.log_info(f"[AUTO_REFRESH] ⏭️  Token {token_id} 剩余时间 > 24小时，无需刷新")
+                debug_logger.log_info(f"[AUTO_REFRESH] ⏭️  Token {token_id} Remaining > 24h, skipping")
                 return False  # Token not expiring soon
 
-            # 📍 Step 5: 触发刷新
+            # 📍 Step 5: Trigger Refresh
             if hours_until_expiry < 0:
-                debug_logger.log_info(f"[AUTO_REFRESH] 🔴 Token {token_id} 已过期，尝试自动刷新...")
+                debug_logger.log_info(f"[AUTO_REFRESH] 🔴 Token {token_id} Expired, trying auto refresh...")
             else:
-                debug_logger.log_info(f"[AUTO_REFRESH] 🟡 Token {token_id} 将在 {hours_until_expiry:.2f} 小时后过期，尝试自动刷新...")
+                debug_logger.log_info(f"[AUTO_REFRESH] 🟡 Token {token_id} Expiring in {hours_until_expiry:.2f}h, trying auto refresh...")
 
             # Priority: ST > RT
             new_at = None
@@ -1181,36 +1180,36 @@ class TokenManager:
             new_rt = None
             refresh_method = None
 
-            # 📍 Step 6: 尝试使用ST刷新
+            # 📍 Step 6: Try ST Refresh
             if token_data.st:
                 try:
-                    debug_logger.log_info(f"[AUTO_REFRESH] 📝 Token {token_id}: 尝试使用 ST 刷新...")
+                    debug_logger.log_info(f"[AUTO_REFRESH] 📝 Token {token_id}: Trying ST refresh...")
                     result = await self.st_to_at(token_data.st)
                     new_at = result.get("access_token")
                     new_st = token_data.st  # ST refresh doesn't return new ST, so keep the old one
                     refresh_method = "ST"
-                    debug_logger.log_info(f"[AUTO_REFRESH] ✅ Token {token_id}: 使用 ST 刷新成功")
+                    debug_logger.log_info(f"[AUTO_REFRESH] ✅ Token {token_id}: ST Refresh Success")
                 except Exception as e:
-                    debug_logger.log_info(f"[AUTO_REFRESH] ❌ Token {token_id}: 使用 ST 刷新失败 - {str(e)}")
+                    debug_logger.log_info(f"[AUTO_REFRESH] ❌ Token {token_id}: ST Refresh Failed - {str(e)}")
                     new_at = None
 
-            # 📍 Step 7: 如果ST失败，尝试使用RT
+            # 📍 Step 7: If ST fails, try RT
             if not new_at and token_data.rt:
                 try:
-                    debug_logger.log_info(f"[AUTO_REFRESH] 📝 Token {token_id}: 尝试使用 RT 刷新...")
+                    debug_logger.log_info(f"[AUTO_REFRESH] 📝 Token {token_id}: Trying RT refresh...")
                     result = await self.rt_to_at(token_data.rt, client_id=token_data.client_id)
                     new_at = result.get("access_token")
                     new_rt = result.get("refresh_token", token_data.rt)  # RT might be updated
                     refresh_method = "RT"
-                    debug_logger.log_info(f"[AUTO_REFRESH] ✅ Token {token_id}: 使用 RT 刷新成功")
+                    debug_logger.log_info(f"[AUTO_REFRESH] ✅ Token {token_id}: RT Refresh Success")
                 except Exception as e:
-                    debug_logger.log_info(f"[AUTO_REFRESH] ❌ Token {token_id}: 使用 RT 刷新失败 - {str(e)}")
+                    debug_logger.log_info(f"[AUTO_REFRESH] ❌ Token {token_id}: RT Refresh Failed - {str(e)}")
                     new_at = None
 
-            # 📍 Step 8: 处理刷新结果
+            # 📍 Step 8: Handle Result
             if new_at:
-                # 刷新成功: 更新Token
-                debug_logger.log_info(f"[AUTO_REFRESH] 💾 Token {token_id}: 保存新的 Access Token...")
+                # Refresh Success: Update Token
+                debug_logger.log_info(f"[AUTO_REFRESH] 💾 Token {token_id}: Saving new Access Token...")
                 await self.update_token(token_id, token=new_at, st=new_st, rt=new_rt)
 
                 # 获取更新后的Token信息
@@ -1218,25 +1217,83 @@ class TokenManager:
                 new_expiry_time = updated_token.expiry_time
                 new_hours_until_expiry = ((new_expiry_time - datetime.now()).total_seconds() / 3600) if new_expiry_time else -1
 
-                debug_logger.log_info(f"[AUTO_REFRESH] ✅ Token {token_id} 已自动刷新成功")
-                debug_logger.log_info(f"  - 刷新方式: {refresh_method}")
-                debug_logger.log_info(f"  - 新过期时间: {new_expiry_time.strftime('%Y-%m-%d %H:%M:%S') if new_expiry_time else 'N/A'}")
-                debug_logger.log_info(f"  - 新剩余时间: {new_hours_until_expiry:.2f} 小时")
+                debug_logger.log_info(f"[AUTO_REFRESH] ✅ Token {token_id} Auto Refreshed Successfully")
+                debug_logger.log_info(f"  - Method: {refresh_method}")
+                debug_logger.log_info(f"  - New Expires: {new_expiry_time.strftime('%Y-%m-%d %H:%M:%S') if new_expiry_time else 'N/A'}")
+                debug_logger.log_info(f"  - New Remaining: {new_hours_until_expiry:.2f} Hours")
 
-                # 📍 Step 9: 检查刷新后的过期时间
+                # 📍 Step 9: Check New Expiry
                 if new_hours_until_expiry < 0:
-                    # 刷新后仍然过期，禁用Token
-                    debug_logger.log_info(f"[AUTO_REFRESH] 🔴 Token {token_id}: 刷新后仍然过期（剩余时间: {new_hours_until_expiry:.2f} 小时），已禁用")
+                    # Still expired, disable token
+                    debug_logger.log_info(f"[AUTO_REFRESH] 🔴 Token {token_id}: Still expired after refresh (Remaining: {new_hours_until_expiry:.2f} Hours), disabled")
                     await self.disable_token(token_id)
                     return False
 
                 return True
             else:
-                # 刷新失败: 禁用Token
-                debug_logger.log_info(f"[AUTO_REFRESH] 🚫 Token {token_id}: 无法刷新（无有效的 ST 或 RT），已禁用")
+                # Refresh Failed: Disable Token
+                debug_logger.log_info(f"[AUTO_REFRESH] 🚫 Token {token_id}: Cannot refresh (No valid ST/RT), disabled")
                 await self.disable_token(token_id)
                 return False
 
         except Exception as e:
-            debug_logger.log_info(f"[AUTO_REFRESH] 🔴 Token {token_id}: 自动刷新异常 - {str(e)}")
+            debug_logger.log_info(f"[AUTO_REFRESH] 🔴 Token {token_id}: Auto Refresh Exception - {str(e)}")
             return False
+
+    async def batch_refresh_all_tokens(self) -> dict:
+        """
+        Batch refresh all tokens (called by scheduled task at midnight)
+
+        Returns:
+            dict with success/failed/skipped counts
+        """
+        debug_logger.log_info("[BATCH_REFRESH] 🔄 Starting batch refresh of all tokens...")
+
+        # Get all tokens
+        all_tokens = await self.db.get_all_tokens()
+
+        success_count = 0
+        failed_count = 0
+        skipped_count = 0
+
+        for token in all_tokens:
+            # Skip tokens without ST or RT
+            if not token.st and not token.rt:
+                debug_logger.log_info(f"[BATCH_REFRESH] ⏭️  Token {token.id} ({token.email}): No ST or RT, skipping")
+                skipped_count += 1
+                continue
+
+            # Skip tokens without expiry time
+            if not token.expiry_time:
+                debug_logger.log_info(f"[BATCH_REFRESH] ⏭️  Token {token.id} ({token.email}): No expiry time, skipping")
+                skipped_count += 1
+                continue
+
+            # Check if token needs refresh (expiry within 24 hours)
+            time_until_expiry = token.expiry_time - datetime.now()
+            hours_until_expiry = time_until_expiry.total_seconds() / 3600
+
+            if hours_until_expiry > 24:
+                debug_logger.log_info(f"[BATCH_REFRESH] ⏭️  Token {token.id} ({token.email}): Expires in {hours_until_expiry:.2f}h > 24h, skipping")
+                skipped_count += 1
+                continue
+
+            # Try to refresh
+            try:
+                result = await self.auto_refresh_expiring_token(token.id)
+                if result:
+                    success_count += 1
+                    debug_logger.log_info(f"[BATCH_REFRESH] ✅ Token {token.id} ({token.email}): Refresh successful")
+                else:
+                    failed_count += 1
+                    debug_logger.log_info(f"[BATCH_REFRESH] ❌ Token {token.id} ({token.email}): Refresh failed")
+            except Exception as e:
+                failed_count += 1
+                debug_logger.log_info(f"[BATCH_REFRESH] ❌ Token {token.id} ({token.email}): Refresh exception - {str(e)}")
+
+        debug_logger.log_info(f"[BATCH_REFRESH] ✅ Completed: Success {success_count}, Failed {failed_count}, Skipped {skipped_count}")
+        return {
+            "success": success_count,
+            "failed": failed_count,
+            "skipped": skipped_count
+        }

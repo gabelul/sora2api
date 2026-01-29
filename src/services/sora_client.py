@@ -271,52 +271,52 @@ class SoraClient:
 
     @staticmethod
     def is_storyboard_prompt(prompt: str) -> bool:
-        """检测提示词是否为分镜模式格式
+        """Check if prompt is storyboard format
 
-        格式: [time]prompt 或 [time]prompt\n[time]prompt
-        例如: [5.0s]猫猫从飞机上跳伞 [5.0s]猫猫降落
+        Format: [time]prompt or [time]prompt\\n[time]prompt
+        Example: [5.0s]Cat skydive [5.0s]Cat lands
 
         Args:
-            prompt: 用户输入的提示词
+            prompt: User input prompt
 
         Returns:
             True if prompt matches storyboard format
         """
         if not prompt:
             return False
-        # 匹配格式: [数字s] 或 [数字.数字s]
+        # Match format: [digits s] or [digits.digits s]
         pattern = r'\[\d+(?:\.\d+)?s\]'
         matches = re.findall(pattern, prompt)
-        # 至少包含一个时间标记才认为是分镜模式
+        # At least one timestamp to count as storyboard
         return len(matches) >= 1
 
     @staticmethod
     def format_storyboard_prompt(prompt: str) -> str:
-        """将分镜格式提示词转换为API所需格式
+        """Convert storyboard prompt to API format
 
-        输入: 猫猫的奇妙冒险\n[5.0s]猫猫从飞机上跳伞 [5.0s]猫猫降落
-        输出: current timeline:\nShot 1:...\n\ninstructions:\n猫猫的奇妙冒险
+        Input: Cat Adventure\\n[5.0s]Cat skydive [5.0s]Cat lands
+        Output: current timeline:\\nShot 1:...\\n\\ninstructions:\\nCat Adventure
 
         Args:
-            prompt: 原始分镜格式提示词
+            prompt: Original storyboard prompt
 
         Returns:
-            格式化后的API提示词
+            Formatted API prompt
         """
-        # 匹配 [时间]内容 的模式
+        # Match [time]content pattern
         pattern = r'\[(\d+(?:\.\d+)?)s\]\s*([^\[]+)'
         matches = re.findall(pattern, prompt)
 
         if not matches:
             return prompt
 
-        # 提取总述(第一个[时间]之前的内容)
+        # Extract summary (content before first [time])
         first_bracket_pos = prompt.find('[')
         instructions = ""
         if first_bracket_pos > 0:
             instructions = prompt[:first_bracket_pos].strip()
 
-        # 格式化分镜
+        # Format shots
         formatted_shots = []
         for idx, (duration, scene) in enumerate(matches, 1):
             scene = scene.strip()
@@ -325,7 +325,7 @@ class SoraClient:
 
         timeline = "\n\n".join(formatted_shots)
 
-        # 如果有总述,添加instructions部分
+        # If summary exists, add instructions part
         if instructions:
             return f"current timeline:\n{timeline}\n\ninstructions:\n{instructions}"
         else:
@@ -354,7 +354,7 @@ class SoraClient:
             "User-Agent" : "Sora/1.2026.007 (Android 15; 24122RKC7C; build 2600700)"
         }
 
-        # 只在生成请求时添加 sentinel token
+        # Add sentinel token only for generation requests
         if add_sentinel_token:
             headers["openai-sentinel-token"] = await self._generate_sentinel_token(token)
 
@@ -367,7 +367,7 @@ class SoraClient:
             kwargs = {
                 "headers": headers,
                 "timeout": self.timeout,
-                "impersonate": "chrome"  # 自动生成 User-Agent 和浏览器指纹
+                "impersonate": "chrome"  # Auto generate UA and fingerprint
             }
 
             if proxy_url:
@@ -459,20 +459,20 @@ class SoraClient:
     async def upload_image(self, image_data: bytes, token: str, filename: str = "image.png") -> str:
         """Upload image and return media_id
 
-        使用 CurlMime 对象上传文件（curl_cffi 的正确方式）
-        参考：https://curl-cffi.readthedocs.io/en/latest/quick_start.html#uploads
+        Use CurlMime for file upload (correct way for curl_cffi)
+        Reference: https://curl-cffi.readthedocs.io/en/latest/quick_start.html#uploads
         """
-        # 检测图片类型
+        # Detect image type
         mime_type = "image/png"
         if filename.lower().endswith('.jpg') or filename.lower().endswith('.jpeg'):
             mime_type = "image/jpeg"
         elif filename.lower().endswith('.webp'):
             mime_type = "image/webp"
 
-        # 创建 CurlMime 对象
+        # Create CurlMime object
         mp = CurlMime()
 
-        # 添加文件部分
+        # Add file part
         mp.addpart(
             name="file",
             content_type=mime_type,
@@ -480,7 +480,7 @@ class SoraClient:
             data=image_data
         )
 
-        # 添加文件名字段
+        # Add file name field
         mp.addpart(
             name="file_name",
             data=filename.encode('utf-8')
@@ -513,7 +513,7 @@ class SoraClient:
             "inpaint_items": inpaint_items
         }
 
-        # 生成请求需要添加 sentinel token
+        # Generation request needs sentinel token
         result = await self._make_request("POST", "/video_gen", token, json_data=json_data, add_sentinel_token=True, token_id=token_id)
         return result["id"]
     
@@ -551,7 +551,7 @@ class SoraClient:
             "style_id": style_id
         }
 
-        # 生成请求需要添加 sentinel token
+        # Generation request needs sentinel token
         proxy_url = await self.proxy_manager.get_proxy_url(token_id)
         sentinel_token = await self._generate_sentinel_token(token)
         result = await self._nf_create_urllib(token, json_data, sentinel_token, proxy_url, token_id)
@@ -596,10 +596,10 @@ class SoraClient:
             "post_text": ""
         }
 
-        # 发布请求需要添加 sentinel token
+        # Post request needs sentinel token
         result = await self._make_request("POST", "/project_y/post", token, json_data=json_data, add_sentinel_token=True)
 
-        # 返回 post.id
+        # Return post.id
         return result.get("post", {}).get("id", "")
 
     async def delete_post(self, post_id: str, token: str) -> bool:

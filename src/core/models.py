@@ -20,26 +20,26 @@ class Token(BaseModel):
     created_at: Optional[datetime] = None
     last_used_at: Optional[datetime] = None
     use_count: int = 0
-    # 订阅信息
-    plan_type: Optional[str] = None  # 账户类型，如 chatgpt_team
-    plan_title: Optional[str] = None  # 套餐名称，如 ChatGPT Business
-    subscription_end: Optional[datetime] = None  # 套餐到期时间
-    # Sora2 支持信息
-    sora2_supported: Optional[bool] = None  # 是否支持Sora2
-    sora2_invite_code: Optional[str] = None  # Sora2邀请码
-    sora2_redeemed_count: int = 0  # Sora2已用次数
-    sora2_total_count: int = 0  # Sora2总次数
-    # Sora2 剩余次数
-    sora2_remaining_count: int = 0  # Sora2剩余可用次数
-    sora2_cooldown_until: Optional[datetime] = None  # Sora2冷却时间
-    # 功能开关
-    image_enabled: bool = True  # 是否启用图片生成
-    video_enabled: bool = True  # 是否启用视频生成
-    # 并发限制
-    image_concurrency: int = -1  # 图片并发数限制，-1表示不限制
-    video_concurrency: int = -1  # 视频并发数限制，-1表示不限制
-    # 过期标记
-    is_expired: bool = False  # Token是否已过期（401 token_invalidated）
+    # Subscription Info
+    plan_type: Optional[str] = None  # Account type, e.g. chatgpt_team
+    plan_title: Optional[str] = None  # Plan name, e.g. ChatGPT Business
+    subscription_end: Optional[datetime] = None  # Subscription end time
+    # Sora2 Support Info
+    sora2_supported: Optional[bool] = None  # Is Sora2 supported
+    sora2_invite_code: Optional[str] = None  # Sora2 invite code
+    sora2_redeemed_count: int = 0  # Sora2 used count
+    sora2_total_count: int = 0  # Sora2 total count
+    # Sora2 Remaining Count
+    sora2_remaining_count: int = 0  # Sora2 remaining available count
+    sora2_cooldown_until: Optional[datetime] = None  # Sora2 cooldown time
+    # Feature Toggles
+    image_enabled: bool = True  # Enable image generation
+    video_enabled: bool = True  # Enable video generation
+    # Concurrency Limits
+    image_concurrency: int = -1  # Image concurrency limit, -1 for no limit
+    video_concurrency: int = -1  # Video concurrency limit, -1 for no limit
+    # Expiry Flag
+    is_expired: bool = False  # Is token expired (401 token_invalidated)
 
 class TokenStats(BaseModel):
     """Token statistics"""
