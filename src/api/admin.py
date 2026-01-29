@@ -115,12 +115,25 @@ class ImportTokensRequest(BaseModel):
     tokens: List[ImportTokenItem]
     mode: str = "at"  # Import mode: offline/at/st/rt
 
+class PureRtImportRequest(BaseModel):
+    refresh_tokens: List[str]  # List of Refresh Tokens
+    client_id: str  # Client ID (required)
+    proxy_url: Optional[str] = None  # Proxy URL (optional)
+    image_concurrency: int = 1  # Image concurrency limit (default: 1)
+    video_concurrency: int = 3  # Video concurrency limit (default: 3)
+
 class UpdateAdminConfigRequest(BaseModel):
     error_ban_threshold: int
+    task_retry_enabled: Optional[bool] = None
+    task_max_retries: Optional[int] = None
+    auto_disable_on_401: Optional[bool] = None
 
 class UpdateProxyConfigRequest(BaseModel):
     proxy_enabled: bool
     proxy_url: Optional[str] = None
+
+class TestProxyRequest(BaseModel):
+    test_url: Optional[str] = "https://sora.chatgpt.com"
 
 class UpdateAdminPasswordRequest(BaseModel):
     old_password: str
@@ -148,6 +161,15 @@ class UpdateWatermarkFreeConfigRequest(BaseModel):
     parse_method: Optional[str] = "third_party"  # "third_party" or "custom"
     custom_parse_url: Optional[str] = None
     custom_parse_token: Optional[str] = None
+    fallback_on_failure: Optional[bool] = True  # Auto fallback to watermarked video on failure
+
+class UpdateCallLogicConfigRequest(BaseModel):
+    call_mode: Optional[str] = None  # "default" or "polling"
+    polling_mode_enabled: Optional[bool] = None  # Legacy support
+
+class UpdatePowProxyConfigRequest(BaseModel):
+    pow_proxy_enabled: bool
+    pow_proxy_url: Optional[str] = None
 
 class BatchDisableRequest(BaseModel):
     token_ids: List[int]
@@ -187,9 +209,9 @@ async def get_tokens(token: str = Depends(verify_admin_token)) -> List[dict]:
         stats = await db.get_token_stats(token.id)
         result.append({
             "id": token.id,
-            "token": token.token,  # Complete Access Token
-            "st": token.st,  # Complete Session Token
-            "rt": token.rt,  # Complete Refresh Token
+            "token": token.token,  # 完整的Access Token
+            "st": token.st,  # 完整的Session Token
+            "rt": token.rt,  # 完整的Refresh Token
             "client_id": token.client_id,  # Client ID
             "proxy_url": token.proxy_url,  # Proxy URL
             "email": token.email,
@@ -204,21 +226,21 @@ async def get_tokens(token: str = Depends(verify_admin_token)) -> List[dict]:
             "image_count": stats.image_count if stats else 0,
             "video_count": stats.video_count if stats else 0,
             "error_count": stats.error_count if stats else 0,
-            # Subscription Info
+            # 订阅信息
             "plan_type": token.plan_type,
             "plan_title": token.plan_title,
             "subscription_end": token.subscription_end.isoformat() if token.subscription_end else None,
-            # Sora2 Info
+            # Sora2信息
             "sora2_supported": token.sora2_supported,
             "sora2_invite_code": token.sora2_invite_code,
             "sora2_redeemed_count": token.sora2_redeemed_count,
             "sora2_total_count": token.sora2_total_count,
             "sora2_remaining_count": token.sora2_remaining_count,
             "sora2_cooldown_until": token.sora2_cooldown_until.isoformat() if token.sora2_cooldown_until else None,
-            # Feature Toggles
+            # 功能开关
             "image_enabled": token.image_enabled,
             "video_enabled": token.video_enabled,
-            # Concurrency Limits
+            # 并发限制
             "image_concurrency": token.image_concurrency,
             "video_concurrency": token.video_concurrency
         })
@@ -249,12 +271,12 @@ async def add_token(request: AddTokenRequest, token: str = Depends(verify_admin_
                 image_concurrency=request.image_concurrency,
                 video_concurrency=request.video_concurrency
             )
-        return {"success": True, "message": "Token added", "token_id": new_token.id}
+        return {"success": True, "message": "Token 添加成功", "token_id": new_token.id}
     except ValueError as e:
         # Token already exists
         raise HTTPException(status_code=409, detail=str(e))
     except Exception as e:
-        raise HTTPException(status_code=400, detail=f"Add Token failed: {str(e)}")
+        raise HTTPException(status_code=400, detail=f"添加 Token 失败: {str(e)}")
 
 @router.post("/api/tokens/st2at")
 async def st_to_at(request: ST2ATRequest, token: str = Depends(verify_admin_token)):
@@ -383,7 +405,7 @@ async def batch_test_update(request: BatchDisableRequest = None, token: str = De
 
         return {
             "success": True,
-            "message": f"Test finished: Success {success_count}, Failed {failed_count}",
+            "message": f"测试完成：成功 {success_count} 个，失败 {failed_count} 个",
             "success_count": success_count,
             "failed_count": failed_count,
             "results": results
@@ -412,7 +434,7 @@ async def batch_enable_all(request: BatchDisableRequest = None, token: str = Dep
 
         return {
             "success": True,
-            "message": f"Enabled {enabled_count} tokens",
+            "message": f"已启用 {enabled_count} 个Token",
             "enabled_count": enabled_count
         }
     except Exception as e:
@@ -420,14 +442,16 @@ async def batch_enable_all(request: BatchDisableRequest = None, token: str = Dep
 
 @router.post("/api/tokens/batch/delete-disabled")
 async def batch_delete_disabled(request: BatchDisableRequest = None, token: str = Depends(verify_admin_token)):
-    """Delete selected tokens or all disabled tokens"""
+    """Delete selected disabled tokens or all disabled tokens"""
     try:
         if request and request.token_ids:
-            # Delete only selected tokens
+            # Delete only selected tokens that are disabled
             deleted_count = 0
             for token_id in request.token_ids:
-                await token_manager.delete_token(token_id)
-                deleted_count += 1
+                token_obj = await db.get_token(token_id)
+                if token_obj and not token_obj.is_active:
+                    await token_manager.delete_token(token_id)
+                    deleted_count += 1
         else:
             # Delete all disabled tokens (backward compatibility)
             tokens = await db.get_all_tokens()
@@ -439,7 +463,7 @@ async def batch_delete_disabled(request: BatchDisableRequest = None, token: str 
 
         return {
             "success": True,
-            "message": f"Deleted {deleted_count} tokens",
+            "message": f"已删除 {deleted_count} 个禁用Token",
             "deleted_count": deleted_count
         }
     except Exception as e:
@@ -456,8 +480,25 @@ async def batch_disable_selected(request: BatchDisableRequest, token: str = Depe
 
         return {
             "success": True,
-            "message": f"Disabled {disabled_count} tokens",
+            "message": f"已禁用 {disabled_count} 个Token",
             "disabled_count": disabled_count
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("/api/tokens/batch/delete-selected")
+async def batch_delete_selected(request: BatchDisableRequest, token: str = Depends(verify_admin_token)):
+    """Delete selected tokens (regardless of their status)"""
+    try:
+        deleted_count = 0
+        for token_id in request.token_ids:
+            await token_manager.delete_token(token_id)
+            deleted_count += 1
+
+        return {
+            "success": True,
+            "message": f"已删除 {deleted_count} 个Token",
+            "deleted_count": deleted_count
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -476,7 +517,7 @@ async def batch_update_proxy(request: BatchUpdateProxyRequest, token: str = Depe
 
         return {
             "success": True,
-            "message": f"Updated proxy for {updated_count} tokens",
+            "message": f"已更新 {updated_count} 个Token的代理",
             "updated_count": updated_count
         }
     except Exception as e:
@@ -500,21 +541,21 @@ async def import_tokens(request: ImportTokensRequest, token: str = Depends(verif
             if mode == "offline":
                 # Offline mode: use provided AT, skip status update
                 if not import_item.access_token:
-                    raise ValueError("Offline import mode requires access_token")
+                    raise ValueError("离线导入模式需要提供 access_token")
                 access_token = import_item.access_token
                 skip_status = True
 
             elif mode == "at":
                 # AT mode: use provided AT, update status (current logic)
                 if not import_item.access_token:
-                    raise ValueError("AT import mode requires access_token")
+                    raise ValueError("AT导入模式需要提供 access_token")
                 access_token = import_item.access_token
                 skip_status = False
 
             elif mode == "st":
                 # ST mode: convert ST to AT, update status
                 if not import_item.session_token:
-                    raise ValueError("ST import mode requires session_token")
+                    raise ValueError("ST导入模式需要提供 session_token")
                 # Convert ST to AT
                 st_result = await token_manager.st_to_at(
                     import_item.session_token,
@@ -529,7 +570,7 @@ async def import_tokens(request: ImportTokensRequest, token: str = Depends(verif
             elif mode == "rt":
                 # RT mode: convert RT to AT, update status
                 if not import_item.refresh_token:
-                    raise ValueError("RT import mode requires refresh_token")
+                    raise ValueError("RT导入模式需要提供 refresh_token")
                 # Convert RT to AT
                 rt_result = await token_manager.rt_to_at(
                     import_item.refresh_token,
@@ -545,7 +586,7 @@ async def import_tokens(request: ImportTokensRequest, token: str = Depends(verif
                     import_item.email = rt_result["email"]
                 skip_status = False
             else:
-                raise ValueError(f"Unsupported import mode: {mode}")
+                raise ValueError(f"不支持的导入模式: {mode}")
 
             # Step 2: Check if token with this email already exists
             existing_token = await db.get_token_by_email(import_item.email)
@@ -632,6 +673,111 @@ async def import_tokens(request: ImportTokensRequest, token: str = Depends(verif
         "results": results
     }
 
+@router.post("/api/tokens/import/pure-rt")
+async def import_pure_rt(request: PureRtImportRequest, token: str = Depends(verify_admin_token)):
+    """Import tokens using pure RT mode (batch RT conversion and import)"""
+    added_count = 0
+    updated_count = 0
+    failed_count = 0
+    results = []
+
+    for rt in request.refresh_tokens:
+        try:
+            # Step 1: Use RT + client_id + proxy to refresh and get AT
+            rt_result = await token_manager.rt_to_at(
+                rt,
+                client_id=request.client_id,
+                proxy_url=request.proxy_url
+            )
+
+            access_token = rt_result.get("access_token")
+            new_refresh_token = rt_result.get("refresh_token", rt)  # Use new RT if returned, else use original
+
+            if not access_token:
+                raise ValueError("Failed to get access_token from RT conversion")
+
+            # Step 2: Parse AT to get user info (email)
+            # The rt_to_at already includes email in the response
+            email = rt_result.get("email")
+
+            # If email not in rt_result, parse it from access_token
+            if not email:
+                import jwt
+                try:
+                    decoded = jwt.decode(access_token, options={"verify_signature": False})
+                    email = decoded.get("https://api.openai.com/profile", {}).get("email")
+                except Exception as e:
+                    raise ValueError(f"Failed to parse email from access_token: {str(e)}")
+
+            if not email:
+                raise ValueError("Failed to extract email from access_token")
+
+            # Step 3: Check if token with this email already exists
+            existing_token = await db.get_token_by_email(email)
+
+            if existing_token:
+                # Update existing token
+                await token_manager.update_token(
+                    token_id=existing_token.id,
+                    token=access_token,
+                    st=None,  # No ST in pure RT mode
+                    rt=new_refresh_token,  # Use refreshed RT
+                    client_id=request.client_id,
+                    proxy_url=request.proxy_url,
+                    remark=None,  # Keep existing remark
+                    image_enabled=True,
+                    video_enabled=True,
+                    image_concurrency=request.image_concurrency,
+                    video_concurrency=request.video_concurrency,
+                    skip_status_update=False  # Update status with new AT
+                )
+                updated_count += 1
+                results.append({
+                    "email": email,
+                    "status": "updated",
+                    "message": "Token updated successfully"
+                })
+            else:
+                # Add new token
+                new_token = await token_manager.add_token(
+                    token_value=access_token,
+                    st=None,  # No ST in pure RT mode
+                    rt=new_refresh_token,  # Use refreshed RT
+                    client_id=request.client_id,
+                    proxy_url=request.proxy_url,
+                    remark=None,
+                    update_if_exists=False,
+                    image_enabled=True,
+                    video_enabled=True,
+                    image_concurrency=request.image_concurrency,
+                    video_concurrency=request.video_concurrency,
+                    skip_status_update=False,  # Update status with new AT
+                    email=email  # Pass email for new token
+                )
+                added_count += 1
+                results.append({
+                    "email": email,
+                    "status": "added",
+                    "message": "Token added successfully"
+                })
+
+        except Exception as e:
+            failed_count += 1
+            results.append({
+                "email": "unknown",
+                "status": "failed",
+                "message": str(e)
+            })
+
+    return {
+        "success": True,
+        "message": f"Pure RT import completed: {added_count} added, {updated_count} updated, {failed_count} failed",
+        "added": added_count,
+        "updated": updated_count,
+        "failed": failed_count,
+        "results": results
+    }
+
 @router.put("/api/tokens/{token_id}")
 async def update_token(
     token_id: int,
@@ -671,6 +817,9 @@ async def get_admin_config(token: str = Depends(verify_admin_token)) -> dict:
     admin_config = await db.get_admin_config()
     return {
         "error_ban_threshold": admin_config.error_ban_threshold,
+        "task_retry_enabled": admin_config.task_retry_enabled,
+        "task_max_retries": admin_config.task_max_retries,
+        "auto_disable_on_401": admin_config.auto_disable_on_401,
         "api_key": config.api_key,
         "admin_username": config.admin_username,
         "debug_enabled": config.debug_enabled
@@ -686,8 +835,16 @@ async def update_admin_config(
         # Get current admin config to preserve username and password
         current_config = await db.get_admin_config()
 
-        # Update only the error_ban_threshold, preserve username and password
+        # Update error_ban_threshold
         current_config.error_ban_threshold = request.error_ban_threshold
+
+        # Update retry settings if provided
+        if request.task_retry_enabled is not None:
+            current_config.task_retry_enabled = request.task_retry_enabled
+        if request.task_max_retries is not None:
+            current_config.task_max_retries = request.task_max_retries
+        if request.auto_disable_on_401 is not None:
+            current_config.auto_disable_on_401 = request.auto_disable_on_401
 
         await db.update_admin_config(current_config)
         return {"success": True, "message": "Configuration updated"}
@@ -790,6 +947,50 @@ async def update_proxy_config(
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
+@router.post("/api/proxy/test")
+async def test_proxy_config(
+    request: TestProxyRequest,
+    token: str = Depends(verify_admin_token)
+) -> dict:
+    """Test proxy connectivity with custom URL"""
+    from curl_cffi.requests import AsyncSession
+
+    config_obj = await proxy_manager.get_proxy_config()
+    if not config_obj.proxy_enabled or not config_obj.proxy_url:
+        return {"success": False, "message": "代理未启用或地址为空"}
+
+    # Use provided test URL or default
+    test_url = request.test_url or "https://sora.chatgpt.com"
+
+    try:
+        async with AsyncSession() as session:
+            response = await session.get(
+                test_url,
+                timeout=15,
+                impersonate="chrome",
+                proxy=config_obj.proxy_url
+            )
+        status_code = response.status_code
+        if 200 <= status_code < 400:
+            return {
+                "success": True,
+                "message": f"代理可用 (HTTP {status_code})",
+                "status_code": status_code,
+                "test_url": test_url
+            }
+        return {
+            "success": False,
+            "message": f"代理响应异常: HTTP {status_code}",
+            "status_code": status_code,
+            "test_url": test_url
+        }
+    except Exception as e:
+        return {
+            "success": False,
+            "message": f"代理连接失败: {str(e)}",
+            "test_url": test_url
+        }
+
 # Watermark-free config endpoints
 @router.get("/api/watermark-free/config")
 async def get_watermark_free_config(token: str = Depends(verify_admin_token)) -> dict:
@@ -799,7 +1000,8 @@ async def get_watermark_free_config(token: str = Depends(verify_admin_token)) ->
         "watermark_free_enabled": config_obj.watermark_free_enabled,
         "parse_method": config_obj.parse_method,
         "custom_parse_url": config_obj.custom_parse_url,
-        "custom_parse_token": config_obj.custom_parse_token
+        "custom_parse_token": config_obj.custom_parse_token,
+        "fallback_on_failure": config_obj.fallback_on_failure
     }
 
 @router.post("/api/watermark-free/config")
@@ -813,7 +1015,8 @@ async def update_watermark_free_config(
             request.watermark_free_enabled,
             request.parse_method,
             request.custom_parse_url,
-            request.custom_parse_token
+            request.custom_parse_token,
+            request.fallback_on_failure
         )
 
         # Update in-memory config
@@ -863,9 +1066,16 @@ async def get_stats(token: str = Depends(verify_admin_token)):
 @router.get("/api/logs")
 async def get_logs(limit: int = 100, token: str = Depends(verify_admin_token)):
     """Get recent logs with token email and task progress"""
+    from src.utils.timezone import convert_utc_to_local
+
     logs = await db.get_recent_logs(limit)
     result = []
     for log in logs:
+        # Convert UTC time to local timezone
+        created_at = log.get("created_at")
+        if created_at:
+            created_at = convert_utc_to_local(created_at)
+
         log_data = {
             "id": log.get("id"),
             "token_id": log.get("token_id"),
@@ -874,14 +1084,14 @@ async def get_logs(limit: int = 100, token: str = Depends(verify_admin_token)):
             "operation": log.get("operation"),
             "status_code": log.get("status_code"),
             "duration": log.get("duration"),
-            "created_at": log.get("created_at"),
+            "created_at": created_at,
             "request_body": log.get("request_body"),
             "response_body": log.get("response_body"),
             "task_id": log.get("task_id")
         }
 
-        # If task_id exists and status is in-progress, get task progress
-        if log.get("task_id") and log.get("status_code") == -1:
+        # If task_id exists, get task progress and status
+        if log.get("task_id"):
             task = await db.get_task(log.get("task_id"))
             if task:
                 log_data["progress"] = task.progress
@@ -896,7 +1106,7 @@ async def clear_logs(token: str = Depends(verify_admin_token)):
     """Clear all logs"""
     try:
         await db.clear_all_logs()
-        return {"success": True, "message": "All logs cleared"}
+        return {"success": True, "message": "所有日志已清空"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -1121,6 +1331,78 @@ async def update_at_auto_refresh_enabled(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to update AT auto refresh enabled status: {str(e)}")
 
+# Call logic config endpoints
+@router.get("/api/call-logic/config")
+async def get_call_logic_config(token: str = Depends(verify_admin_token)) -> dict:
+    """Get call logic configuration"""
+    config_obj = await db.get_call_logic_config()
+    call_mode = getattr(config_obj, "call_mode", None)
+    if call_mode not in ("default", "polling"):
+        call_mode = "polling" if config_obj.polling_mode_enabled else "default"
+    return {
+        "success": True,
+        "config": {
+            "call_mode": call_mode,
+            "polling_mode_enabled": call_mode == "polling"
+        }
+    }
+
+@router.post("/api/call-logic/config")
+async def update_call_logic_config(
+    request: UpdateCallLogicConfigRequest,
+    token: str = Depends(verify_admin_token)
+):
+    """Update call logic configuration"""
+    try:
+        call_mode = request.call_mode if request.call_mode in ("default", "polling") else None
+        if call_mode is None and request.polling_mode_enabled is not None:
+            call_mode = "polling" if request.polling_mode_enabled else "default"
+        if call_mode is None:
+            raise HTTPException(status_code=400, detail="Invalid call_mode")
+
+        await db.update_call_logic_config(call_mode)
+        config.set_call_logic_mode(call_mode)
+        return {
+            "success": True,
+            "message": "Call logic configuration updated",
+            "call_mode": call_mode,
+            "polling_mode_enabled": call_mode == "polling"
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to update call logic configuration: {str(e)}")
+
+# POW proxy config endpoints
+@router.get("/api/pow-proxy/config")
+async def get_pow_proxy_config(token: str = Depends(verify_admin_token)) -> dict:
+    """Get POW proxy configuration"""
+    config_obj = await db.get_pow_proxy_config()
+    return {
+        "success": True,
+        "config": {
+            "pow_proxy_enabled": config_obj.pow_proxy_enabled,
+            "pow_proxy_url": config_obj.pow_proxy_url or ""
+        }
+    }
+
+@router.post("/api/pow-proxy/config")
+async def update_pow_proxy_config(
+    request: UpdatePowProxyConfigRequest,
+    token: str = Depends(verify_admin_token)
+):
+    """Update POW proxy configuration"""
+    try:
+        await db.update_pow_proxy_config(request.pow_proxy_enabled, request.pow_proxy_url)
+        config.set_pow_proxy_enabled(request.pow_proxy_enabled)
+        config.set_pow_proxy_url(request.pow_proxy_url or "")
+        return {
+            "success": True,
+            "message": "POW proxy configuration updated"
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to update POW proxy configuration: {str(e)}")
+
 # Task management endpoints
 @router.post("/api/tasks/{task_id}/cancel")
 async def cancel_task(task_id: str, token: str = Depends(verify_admin_token)):
@@ -1129,34 +1411,53 @@ async def cancel_task(task_id: str, token: str = Depends(verify_admin_token)):
         # Get task from database
         task = await db.get_task(task_id)
         if not task:
-            raise HTTPException(status_code=404, detail="Task not found")
+            raise HTTPException(status_code=404, detail="任务不存在")
 
         # Check if task is still processing
         if task.status not in ["processing"]:
-            return {"success": False, "message": f"Task status is {task.status}, cannot cancel"}
+            return {"success": False, "message": f"任务状态为 {task.status},无法取消"}
 
         # Update task status to failed
-        await db.update_task(task_id, "failed", 0, error_message="User cancelled task manually")
+        await db.update_task(task_id, "failed", 0, error_message="用户手动取消任务")
 
         # Update request log if exists
         logs = await db.get_recent_logs(limit=1000)
         for log in logs:
             if log.get("task_id") == task_id and log.get("status_code") == -1:
                 import time
-                duration = time.time() - (log.get("created_at").timestamp() if log.get("created_at") else time.time())
+                from datetime import datetime
+
+                # Calculate duration
+                created_at = log.get("created_at")
+                if created_at:
+                    # If created_at is a string, parse it
+                    if isinstance(created_at, str):
+                        try:
+                            created_at = datetime.fromisoformat(created_at.replace('Z', '+00:00'))
+                            duration = time.time() - created_at.timestamp()
+                        except:
+                            duration = 0
+                    # If it's already a datetime object
+                    elif isinstance(created_at, datetime):
+                        duration = time.time() - created_at.timestamp()
+                    else:
+                        duration = 0
+                else:
+                    duration = 0
+
                 await db.update_request_log(
                     log.get("id"),
-                    response_body='{"error": "User cancelled task manually"}',
+                    response_body='{"error": "用户手动取消任务"}',
                     status_code=499,
                     duration=duration
                 )
                 break
 
-        return {"success": True, "message": "Task cancelled"}
+        return {"success": True, "message": "任务已取消"}
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Cancel task failed: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"取消任务失败: {str(e)}")
 
 # Debug logs download endpoint
 @router.get("/api/admin/logs/download")
@@ -1165,7 +1466,7 @@ async def download_debug_logs(token: str = Depends(verify_admin_token)):
     log_file = Path("logs.txt")
 
     if not log_file.exists():
-        raise HTTPException(status_code=404, detail="Log file not found")
+        raise HTTPException(status_code=404, detail="日志文件不存在")
 
     return FileResponse(
         path=str(log_file),

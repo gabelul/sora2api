@@ -1,13 +1,15 @@
 """API routes - OpenAI compatible endpoints"""
-from fastapi import APIRouter, Depends, HTTPException, Header
+from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import StreamingResponse, JSONResponse
 from datetime import datetime
 from typing import List
 import json
 import re
+import time
 from ..core.auth import verify_api_key_header
 from ..core.models import ChatCompletionRequest
 from ..services.generation_handler import GenerationHandler, MODEL_CONFIG
+from ..core.logger import debug_logger
 
 router = APIRouter()
 
@@ -72,10 +74,21 @@ async def list_models(api_key: str = Depends(verify_api_key_header)):
 async def create_chat_completion(
     request: ChatCompletionRequest,
     api_key: str = Depends(verify_api_key_header),
-    x_sora2_async: bool = Header(False, alias="X-Sora2-Async", description="Enable asynchronous generation mode")
+    http_request: Request = None
 ):
     """Create chat completion (unified endpoint for image and video generation)"""
+    start_time = time.time()
+
     try:
+        # Log client request
+        debug_logger.log_request(
+            method="POST",
+            url="/v1/chat/completions",
+            headers=dict(http_request.headers) if http_request else {},
+            body=request.dict(),
+            source="Client"
+        )
+
         # Extract prompt from messages
         if not request.messages:
             raise HTTPException(status_code=400, detail="Messages cannot be empty")
@@ -138,43 +151,12 @@ async def create_chat_completion(
         model_config = MODEL_CONFIG[request.model]
         is_video_model = model_config["type"] == "video"
 
-        # Check for async mode (applies to all video/image generation)
-        if x_sora2_async:
-            task_id = await generation_handler.submit_background_task(
-                model=request.model,
-                prompt=prompt,
-                image=image_data,
-                video=video_data,
-                remix_target_id=remix_target_id
-            )
-            
-            return {
-                "id": "chatcmpl-" + task_id,
-                "object": "chat.completion",
-                "created": int(datetime.now().timestamp()),
-                "model": request.model,
-                "choices": [{
-                    "index": 0,
-                    "message": {
-                        "role": "assistant",
-                        "content": f"Task submitted successfully. Task ID: {task_id}\n\nPlease check status at: GET /v1/tasks/{task_id}"
-                    },
-                    "finish_reason": "stop"
-                }],
-                "usage": {
-                    "prompt_tokens": 0,
-                    "completion_tokens": 0,
-                    "total_tokens": 0
-                },
-                "task_id": task_id
-            }
-
         # For video models with video parameter, we need streaming
         if is_video_model and (video_data or remix_target_id):
             if not request.stream:
                 # Non-streaming mode: only check availability
                 result = None
-                async for chunk in generation_handler.handle_generation(
+                async for chunk in generation_handler.handle_generation_with_retry(
                     model=request.model,
                     prompt=prompt,
                     image=image_data,
@@ -185,25 +167,43 @@ async def create_chat_completion(
                     result = chunk
 
                 if result:
-                    return JSONResponse(content=json.loads(result))
+                    duration_ms = (time.time() - start_time) * 1000
+                    response_data = json.loads(result)
+                    debug_logger.log_response(
+                        status_code=200,
+                        headers={"Content-Type": "application/json"},
+                        body=response_data,
+                        duration_ms=duration_ms,
+                        source="Client"
+                    )
+                    return JSONResponse(content=response_data)
                 else:
+                    duration_ms = (time.time() - start_time) * 1000
+                    error_response = {
+                        "error": {
+                            "message": "Availability check failed",
+                            "type": "server_error",
+                            "param": None,
+                            "code": None
+                        }
+                    }
+                    debug_logger.log_response(
+                        status_code=500,
+                        headers={"Content-Type": "application/json"},
+                        body=error_response,
+                        duration_ms=duration_ms,
+                        source="Client"
+                    )
                     return JSONResponse(
                         status_code=500,
-                        content={
-                            "error": {
-                                "message": "Availability check failed",
-                                "type": "server_error",
-                                "param": None,
-                                "code": None
-                            }
-                        }
+                        content=error_response
                     )
 
         # Handle streaming
         if request.stream:
             async def generate():
                 try:
-                    async for chunk in generation_handler.handle_generation(
+                    async for chunk in generation_handler.handle_generation_with_retry(
                         model=request.model,
                         prompt=prompt,
                         image=image_data,
@@ -250,7 +250,7 @@ async def create_chat_completion(
         else:
             # Non-streaming response (availability check only)
             result = None
-            async for chunk in generation_handler.handle_generation(
+            async for chunk in generation_handler.handle_generation_with_retry(
                 model=request.model,
                 prompt=prompt,
                 image=image_data,
@@ -261,64 +261,64 @@ async def create_chat_completion(
                 result = chunk
 
             if result:
-                return JSONResponse(content=json.loads(result))
+                duration_ms = (time.time() - start_time) * 1000
+                response_data = json.loads(result)
+                debug_logger.log_response(
+                    status_code=200,
+                    headers={"Content-Type": "application/json"},
+                    body=response_data,
+                    duration_ms=duration_ms,
+                    source="Client"
+                )
+                return JSONResponse(content=response_data)
             else:
                 # Return OpenAI-compatible error format
+                duration_ms = (time.time() - start_time) * 1000
+                error_response = {
+                    "error": {
+                        "message": "Availability check failed",
+                        "type": "server_error",
+                        "param": None,
+                        "code": None
+                    }
+                }
+                debug_logger.log_response(
+                    status_code=500,
+                    headers={"Content-Type": "application/json"},
+                    body=error_response,
+                    duration_ms=duration_ms,
+                    source="Client"
+                )
                 return JSONResponse(
                     status_code=500,
-                    content={
-                        "error": {
-                            "message": "Availability check failed",
-                            "type": "server_error",
-                            "param": None,
-                            "code": None
-                        }
-                    }
+                    content=error_response
                 )
 
     except Exception as e:
         # Return OpenAI-compatible error format
+        duration_ms = (time.time() - start_time) * 1000
+        error_response = {
+            "error": {
+                "message": str(e),
+                "type": "server_error",
+                "param": None,
+                "code": None
+            }
+        }
+        debug_logger.log_error(
+            error_message=str(e),
+            status_code=500,
+            response_text=str(e),
+            source="Client"
+        )
+        debug_logger.log_response(
+            status_code=500,
+            headers={"Content-Type": "application/json"},
+            body=error_response,
+            duration_ms=duration_ms,
+            source="Client"
+        )
         return JSONResponse(
             status_code=500,
-            content={
-                "error": {
-                    "message": str(e),
-                    "type": "server_error",
-                    "param": None,
-                    "code": None
-                }
-            }
+            content=error_response
         )
-
-@router.get("/v1/tasks/{task_id}")
-async def get_task_status(
-    task_id: str,
-    api_key: str = Depends(verify_api_key_header)
-):
-    """Get task status for async generation"""
-    if not generation_handler or not generation_handler.db:
-        raise HTTPException(status_code=500, detail="Service not initialized")
-    
-    task = await generation_handler.db.get_task(task_id)
-    if not task:
-        raise HTTPException(status_code=404, detail="Task not found")
-    
-    response = {
-        "id": task.task_id,
-        "status": task.status,
-        "progress": f"{int(task.progress)}%" if task.status == "processing" else "100%",
-        "created_at": task.created_at.isoformat() if task.created_at else None,
-        "model": task.model,
-        "prompt": task.prompt
-    }
-
-    if task.status in ["completed", "success"]:
-        try:
-            if task.result_urls:
-                response["result_urls"] = json.loads(task.result_urls)
-        except:
-            response["result_urls"] = task.result_urls
-    elif task.status == "failed":
-        response["error"] = task.error_message
-
-    return response
