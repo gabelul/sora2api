@@ -106,7 +106,34 @@
             <!-- Token 列表 -->
             <div class="rounded-lg border border-border bg-background">
                 <div class="flex items-center justify-between gap-4 p-4 border-b border-border">
-                    <h3 class="text-lg font-semibold">Token List</h3>
+                    <div class="flex items-center gap-2">
+                        <h3 class="text-lg font-semibold">Token List</h3>
+                        <!-- Status Filter Button -->
+                        <div class="relative">
+                            <button id="statusFilterBtn" onclick="toggleStatusFilterDropdown()"
+                                class="inline-flex items-center justify-center gap-1.5 rounded-md border border-input bg-background px-3 h-8 text-sm transition-colors hover:bg-accent hover:border-primary"
+                                title="Filter Status">
+                                <svg class="h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
+                                    stroke="currentColor" stroke-width="2">
+                                    <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3" />
+                                </svg>
+                                <span id="statusFilterLabel">All</span>
+                                <svg class="h-3 w-3" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
+                                    stroke="currentColor" stroke-width="2">
+                                    <polyline points="6 9 12 15 18 9" />
+                                </svg>
+                            </button>
+                            <!-- Dropdown Menu -->
+                            <div id="statusFilterDropdown"
+                                class="hidden absolute left-0 mt-2 w-32 rounded-md border border-border bg-background shadow-lg z-50">
+                                <div class="py-1">
+                                    <button onclick="selectStatusFilter('')"
+                                        class="w-full text-left px-4 py-2 text-sm hover:bg-accent transition-colors"
+                                        data-filter-option="">All</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                     <div class="flex items-center gap-3">
                         <!-- Auto Refresh AT Tag and Toggle -->
                         <div class="flex items-center gap-2">
@@ -453,6 +480,30 @@
                             <p class="text-xs text-muted-foreground mt-1">Supports HTTP and SOCKS5 proxies</p>
                         </div>
                         <button onclick="saveProxyConfig()"
+                            class="inline-flex items-center justify-center rounded-md bg-primary text-primary-foreground hover:bg-primary/90 h-9 px-4 w-full">Save
+                            Config</button>
+                    </div>
+                </div>
+
+                <!-- POW Proxy Configuration -->
+                <div class="rounded-lg border border-border bg-background p-6">
+                    <h3 class="text-lg font-semibold mb-4">POW Proxy Configuration</h3>
+                    <div class="space-y-4">
+                        <div>
+                            <label class="inline-flex items-center gap-2 cursor-pointer">
+                                <input type="checkbox" id="cfgPowProxyEnabled" class="h-4 w-4 rounded border-input">
+                                <span class="text-sm font-medium">Enable POW Proxy</span>
+                            </label>
+                            <p class="text-xs text-muted-foreground mt-1">Proxy for fetching Sentinel Tokens</p>
+                        </div>
+                        <div>
+                            <label class="text-sm font-medium mb-2 block">POW Proxy URL</label>
+                            <input id="cfgPowProxyUrl"
+                                class="flex h-9 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                                placeholder="http://127.0.0.1:7890">
+                            <p class="text-xs text-muted-foreground mt-1">Proxy address for POW Token retrieval</p>
+                        </div>
+                        <button onclick="savePowProxyConfig()"
                             class="inline-flex items-center justify-center rounded-md bg-primary text-primary-foreground hover:bg-primary/90 h-9 px-4 w-full">Save
                             Config</button>
                     </div>
@@ -1239,26 +1290,104 @@
             loadLogs = async () => { try { const r = await apiRequest('/api/logs?limit=100'); if (!r) return; const logs = await r.json(); window.allLogs = logs; const tb = $('logsTableBody'); tb.innerHTML = logs.map(l => { const isProcessing = l.status_code === -1; const statusText = isProcessing ? 'Processing' : l.status_code; const statusClass = isProcessing ? 'bg-blue-50 text-blue-700' : l.status_code === 200 ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'; let progressHtml = '<span class="text-xs text-muted-foreground">-</span>'; if (isProcessing && l.task_status) { const taskStatusMap = { processing: 'Generating', completed: 'Completed', failed: 'Failed' }; const taskStatusText = taskStatusMap[l.task_status] || l.task_status; const progress = l.progress || 0; progressHtml = `<div class="flex flex-col gap-1"><div class="flex items-center gap-2"><div class="flex-1 h-2 bg-gray-200 rounded-full overflow-hidden"><div class="h-full bg-blue-500 transition-all" style="width:${progress}%"></div></div><span class="text-xs text-blue-600">${progress.toFixed(0)}%</span></div><span class="text-xs text-muted-foreground">${taskStatusText}</span></div>` } let actionHtml = '<button onclick="showLogDetail(' + l.id + ')" class="inline-flex items-center justify-center rounded-md hover:bg-blue-50 hover:text-blue-700 h-7 px-2 text-xs">View</button>'; if (isProcessing && l.task_id) { actionHtml = '<div class="flex gap-1"><button onclick="showLogDetail(' + l.id + ')" class="inline-flex items-center justify-center rounded-md hover:bg-blue-50 hover:text-blue-700 h-7 px-2 text-xs">View</button><button onclick="cancelTask(\'' + l.task_id + '\')" class="inline-flex items-center justify-center rounded-md hover:bg-red-50 hover:text-red-700 h-7 px-2 text-xs">Stop</button></div>' } return `<tr><td class="py-2.5 px-3">${l.operation}</td><td class="py-2.5 px-3"><span class="text-xs ${l.token_email ? 'text-blue-600' : 'text-muted-foreground'}">${l.token_email || 'Unknown'}</span></td><td class="py-2.5 px-3"><span class="inline-flex items-center rounded px-2 py-0.5 text-xs ${statusClass}">${statusText}</span></td><td class="py-2.5 px-3">${progressHtml}</td><td class="py-2.5 px-3">${l.duration === -1 ? 'Processing' : l.duration.toFixed(2) + 's'}</td><td class="py-2.5 px-3 text-xs text-muted-foreground">${l.created_at ? new Date(l.created_at).toLocaleString('en-US') : '-'}</td><td class="py-2.5 px-3">${actionHtml}</td></tr>` }).join('') } catch (e) { console.error('Failed to load logs:', e) } },
             refreshLogs = async () => { await loadLogs() },
             showLogDetail = (logId) => { const log = window.allLogs.find(l => l.id === logId); if (!log) { showToast('Log not found', 'error'); return } const content = $('logDetailContent'); let detailHtml = ''; if (log.status_code === -1) { detailHtml += `<div class="space-y-2"><h4 class="font-medium text-sm text-blue-600">Generation Progress</h4><div class="rounded-md border border-blue-200 p-3 bg-blue-50"><p class="text-sm text-blue-700">Generating...</p>${log.task_status ? `<p class="text-xs text-blue-600 mt-1">Status: ${log.task_status}</p>` : ''}</div></div>` } else if (log.status_code === 200) { try { const responseBody = log.response_body ? JSON.parse(log.response_body) : null; if (responseBody) { if (responseBody.data && responseBody.data.length > 0) { const item = responseBody.data[0]; if (item.url) { detailHtml += `<div class="space-y-2"><h4 class="font-medium text-sm">Result</h4><div class="rounded-md border border-border p-3 bg-muted/30"><p class="text-sm mb-2"><span class="font-medium">File URL:</span></p><a href="${item.url}" target="_blank" class="text-blue-600 hover:underline text-xs break-all">${item.url}</a></div></div>` } else { detailHtml += `<div class="space-y-2"><h4 class="font-medium text-sm">Response Data</h4><pre class="rounded-md border border-border p-3 bg-muted/30 text-xs overflow-x-auto">${JSON.stringify(responseBody, null, 2)}</pre></div>` } } else { detailHtml += `<div class="space-y-2"><h4 class="font-medium text-sm">Response Data</h4><pre class="rounded-md border border-border p-3 bg-muted/30 text-xs overflow-x-auto">${JSON.stringify(responseBody, null, 2)}</pre></div>` } } else { detailHtml += `<div class="space-y-2"><h4 class="font-medium text-sm">Response Info</h4><p class="text-sm text-muted-foreground">No response data</p></div>` } } catch (e) { detailHtml += `<div class="space-y-2"><h4 class="font-medium text-sm">Response Data</h4><pre class="rounded-md border border-border p-3 bg-muted/30 text-xs overflow-x-auto">${log.response_body || 'None'}</pre></div>` } } else { try { const responseBody = log.response_body ? JSON.parse(log.response_body) : null; if (responseBody && responseBody.error) { detailHtml += `<div class="space-y-2"><h4 class="font-medium text-sm text-red-600">Error Reason</h4><div class="rounded-md border border-red-200 p-3 bg-red-50"><p class="text-sm text-red-700">${responseBody.error.message || responseBody.error || 'Unknown Error'}</p></div></div>` } else if (log.response_body && log.response_body !== '{}') { detailHtml += `<div class="space-y-2"><h4 class="font-medium text-sm text-red-600">Error Info</h4><pre class="rounded-md border border-red-200 p-3 bg-red-50 text-xs overflow-x-auto">${log.response_body}</pre></div>` } } catch (e) { if (log.response_body && log.response_body !== '{}') { detailHtml += `<div class="space-y-2"><h4 class="font-medium text-sm text-red-600">Error Info</h4><pre class="rounded-md border border-red-200 p-3 bg-red-50 text-xs overflow-x-auto">${log.response_body}</pre></div>` } } } detailHtml += `<div class="space-y-2 pt-4 border-t border-border"><h4 class="font-medium text-sm">Basic Info</h4><div class="grid grid-cols-2 gap-2 text-sm"><div><span class="text-muted-foreground">Op:</span> ${log.operation}</div><div><span class="text-muted-foreground">Status:</span> <span class="inline-flex items-center rounded px-2 py-0.5 text-xs ${log.status_code === -1 ? 'bg-blue-50 text-blue-700' : log.status_code === 200 ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'}">${log.status_code === -1 ? 'Generating' : log.status_code}</span></div><div><span class="text-muted-foreground">Duration:</span> ${log.duration === -1 ? 'Generating' : log.duration.toFixed(2) + 's'}</div><div><span class="text-muted-foreground">Time:</span> ${log.created_at ? new Date(log.created_at).toLocaleString('en-US') : '-'}</div></div></div>`; content.innerHTML = detailHtml; $('logDetailModal').classList.remove('hidden') },
-            closeLogDetailModal = () => { $('logDetailModal').classList.add('hidden') },
-            clearAllLogs = async () => { if (!confirm('Clear all logs? Irreversible!')) return; try { const r = await apiRequest('/api/logs', { method: 'DELETE' }); if (!r) return; const d = await r.json(); if (d.success) { showToast('Logs cleared', 'success'); await loadLogs() } else { showToast('Clear failed: ' + (d.message || 'Unknown Error'), 'error') } } catch (e) { showToast('Clear failed: ' + e.message, 'error') } },
-            cancelTask = async (taskId) => { if (!confirm('Cancel this task?')) return; try { const r = await apiRequest(`/api/tasks/${taskId}/cancel`, { method: 'POST' }); if (!r) return; const d = await r.json(); if (d.success) { showToast('Task cancelled', 'success'); await loadLogs() } else { showToast('Cancel failed: ' + (d.message || 'Unknown Error'), 'error') } } catch (e) { showToast('Cancel failed: ' + e.message, 'error') } },
-            showToast = (m, t = 'info') => { const d = document.createElement('div'), bc = { success: 'bg-green-600', error: 'bg-destructive', info: 'bg-primary' }; d.className = `fixed bottom-4 right-4 ${bc[t] || bc.info} text-white px-4 py-2.5 rounded-lg shadow-lg text-sm font-medium z-50 animate-slide-up`; d.textContent = m; document.body.appendChild(d); setTimeout(() => { d.style.opacity = '0'; d.style.transition = 'opacity .3s'; setTimeout(() => d.parentNode && document.body.removeChild(d), 300) }, 2000) },
-            logout = () => { if (!confirm('Logout?')) return; localStorage.removeItem('adminToken'); location.href = '/login' },
-            loadCharacters = async () => { try { const r = await apiRequest('/api/characters'); if (!r) return; const d = await r.json(); const g = $('charactersGrid'); if (!d || d.length === 0) { g.innerHTML = '<div class="col-span-full text-center py-8 text-muted-foreground">No character cards</div>'; return } g.innerHTML = d.map(c => `<div class="rounded-lg border border-border bg-background p-4"><div class="flex items-start gap-3"><img src="${c.avatar_path || '/static/favicon.ico'}" class="h-14 w-14 rounded-lg object-cover" onerror="this.src='/static/favicon.ico'"/><div class="flex-1 min-w-0"><div class="font-semibold truncate">${c.display_name || c.username}</div><div class="text-xs text-muted-foreground truncate">@${c.username}</div>${c.description ? `<div class="text-xs text-muted-foreground mt-1 line-clamp-2">${c.description}</div>` : ''}</div></div><div class="mt-3 flex gap-2"><button onclick="deleteCharacter(${c.id})" class="flex-1 inline-flex items-center justify-center rounded-md border border-destructive text-destructive hover:bg-destructive hover:text-white h-8 px-3 text-sm transition-colors">Delete</button></div></div>`).join('') } catch (e) { showToast('Load failed: ' + e.message, 'error') } },
-            deleteCharacter = async (id) => { if (!confirm('Delete this character card?')) return; try { const r = await apiRequest(`/api/characters/${id}`, { method: 'DELETE' }); if (!r) return; const d = await r.json(); if (d.success) { showToast('Deleted', 'success'); await loadCharacters() } else { showToast('Delete failed', 'error') } } catch (e) { showToast('Delete failed: ' + e.message, 'error') } },
-            switchTab = t => { const cap = n => n.charAt(0).toUpperCase() + n.slice(1);['tokens', 'settings', 'logs', 'generate'].forEach(n => { const active = n === t; $(`panel${cap(n)}`).classList.toggle('hidden', !active); $(`tab${cap(n)}`).classList.toggle('border-primary', active); $(`tab${cap(n)}`).classList.toggle('text-primary', active); $(`tab${cap(n)}`).classList.toggle('border-transparent', !active); $(`tab${cap(n)}`).classList.toggle('text-muted-foreground', !active) }); if (t === 'settings') { loadAdminConfig(); loadProxyConfig(); loadWatermarkFreeConfig(); loadCacheConfig(); loadGenerationTimeout(); loadATAutoRefreshConfig() } else if (t === 'logs') { loadLogs() } };
-        // 自适应生成面板 iframe 高度
-        window.addEventListener('message', (event) => {
-            const data = event.data || {};
-            if (data.type === 'sora-generate-height' && typeof data.height === 'number') {
-                const iframe = document.getElementById('generateFrame');
-                if (iframe) {
-                    const nextH = Math.max(560, Math.ceil(data.height) + 8);
-                    iframe.style.height = `${nextH}px`;
-                }
-            }
-        });
-        window.addEventListener('DOMContentLoaded', () => { checkAuth(); refreshTokens(); loadATAutoRefreshConfig() });
+            showLogDetail = (logId) => {
+                const log = window.allLogs.find(l => l.id === logId); if (!log) { showToast('Log not found', 'error'); return } const content = $('logDetailContent'); let detailHtml = ''; if (log.status_code === -1) { detailHtml += `<div class="space-y-2"><h4 class="font-medium text-sm text-blue-600">Generation Progress</h4><div class="rounded-md border border-blue-200 p-3 bg-blue-50"><p class="text-sm text-blue-700">Generating...</p>${log.task_status ? `<p class="text-xs text-blue-600 mt-1">Status: ${log.task_status}</p>` : ''}</div></div>` } else if (log.status_code === 200) { try { const responseBody = log.response_body ? JSON.parse(log.response_body) : null; if (responseBody) { if (responseBody.data && responseBody.data.length > 0) { const item = responseBody.data[0]; if (item.url) { detailHtml += `<div class="space-y-2"><h4 class="font-medium text-sm">Result</h4><div class="rounded-md border border-border p-3 bg-muted/30"><p class="text-sm mb-2"><span class="font-medium">File URL:</span></p><a href="${item.url}" target="_blank" class="text-blue-600 hover:underline text-xs break-all">${item.url}</a></div></div>` } else { detailHtml += `<div class="space-y-2"><h4 class="font-medium text-sm">Response Data</h4><pre class="rounded-md border border-border p-3 bg-muted/30 text-xs overflow-x-auto">${JSON.stringify(responseBody, null, 2)}</pre></div>` } } else { detailHtml += `<div class="space-y-2"><h4 class="font-medium text-sm">Response Info</h4><p class="text-sm text-muted-foreground">No response data</p></div>` } } catch (e) { detailHtml += `<div class="space-y-2"><h4 class="font-medium text-sm">Response Data</h4><pre class="rounded-md border border-border p-3 bg-muted/30 text-xs overflow-x-auto">${log.response_body || 'None'}</pre></div>` } } else { try { const responseBody = log.response_body ? JSON.parse(log.response_body) : null; if (responseBody && responseBody.error) { detailHtml += `<div class="space-y-2"><h4 class="font-medium text-sm text-red-600">Error Reason</h4><div class="rounded-md border border-red-200 p-3 bg-red-50"><p class="text-sm text-red-700">${responseBody.error.message || responseBody.error || 'Unknown Error'}</p></div></div>` } else if (log.response_body && log.response_body !== '{}') { detailHtml += `<div class="space-y-2"><h4 class="font-medium text-sm text-red-600">Error Info</h4><pre class="rounded-md border border-red-200 p-3 bg-red-50 text-xs overflow-x-auto">${log.response_body}</pre></div>` } } catch (e) { if (log.response_body && log.response_body !== '{}') { detailHtml += `<div class="space-y-2"><h4 class="font-medium text-sm text-red-600">Error Info</h4><pre class="rounded-md border border-red-200 p-3 bg-red-50 text-xs overflow-x-auto">${log.response_body}</pre></div>` } } } detailHtml += `<div class="space-y-2 pt-4 border-t border-border"><h4 class="font-medium text-sm">Basic Info</h4><div class="grid grid-cols-2 gap-2 text-sm"><div><span class="text-muted-foreground">Op:</span> ${log.operation}</div><div><span class="text-muted-foreground">Status:</span> <span class="inline-flex items-center rounded px-2 py-0.5 text-xs ${log.status_code === -1 ? 'bg-blue-50 text-blue-700' : log.status_code === 200 ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'}">${log.status_code === -1 ? 'Generating' : log.status_code}</span></div><div><span class="text-muted-foreground">Duration:</span> ${log.duration === -1 ? 'Generating' : log.duration.toFixed(2) + 's'}</div><div><span class="text-muted-foreground">Time:</span> ${log.created_at ? new Date(log.created_at).toLocaleString('en-US') : '-'}</div></div></div>`; content.innerHTML = detailHtml; $('logDetailModal').classList.remove('hidden') },
+                closeLogDetailModal = () => { $('logDetailModal').classList.add('hidden') },
+                    clearAllLogs = async () => { if (!confirm('Clear all logs? Irreversible!')) return; try { const r = await apiRequest('/api/logs', { method: 'DELETE' }); if (!r) return; const d = await r.json(); if (d.success) { showToast('Logs cleared', 'success'); await loadLogs() } else { showToast('Clear failed: ' + (d.message || 'Unknown Error'), 'error') } } catch (e) { showToast('Clear failed: ' + e.message, 'error') } },
+                    cancelTask = async (taskId) => { if (!confirm('Cancel this task?')) return; try { const r = await apiRequest(`/api/tasks/${taskId}/cancel`, { method: 'POST' }); if (!r) return; const d = await r.json(); if (d.success) { showToast('Task cancelled', 'success'); await loadLogs() } else { showToast('Cancel failed: ' + (d.message || 'Unknown Error'), 'error') } } catch (e) { showToast('Cancel failed: ' + e.message, 'error') } },
+                    showToast = (m, t = 'info') => { const d = document.createElement('div'), bc = { success: 'bg-green-600', error: 'bg-destructive', info: 'bg-primary' }; d.className = `fixed bottom-4 right-4 ${bc[t] || bc.info} text-white px-4 py-2.5 rounded-lg shadow-lg text-sm font-medium z-50 animate-slide-up`; d.textContent = m; document.body.appendChild(d); setTimeout(() => { d.style.opacity = '0'; d.style.transition = 'opacity .3s'; setTimeout(() => d.parentNode && document.body.removeChild(d), 300) }, 2000) },
+                    logout = () => { if (!confirm('Logout?')) return; localStorage.removeItem('adminToken'); location.href = '/login' },
+                    loadCharacters = async () => { try { const r = await apiRequest('/api/characters'); if (!r) return; const d = await r.json(); const g = $('charactersGrid'); if (!d || d.length === 0) { g.innerHTML = '<div class="col-span-full text-center py-8 text-muted-foreground">No character cards</div>'; return } g.innerHTML = d.map(c => `<div class="rounded-lg border border-border bg-background p-4"><div class="flex items-start gap-3"><img src="${c.avatar_path || '/static/favicon.ico'}" class="h-14 w-14 rounded-lg object-cover" onerror="this.src='/static/favicon.ico'"/><div class="flex-1 min-w-0"><div class="font-semibold truncate">${c.display_name || c.username}</div><div class="text-xs text-muted-foreground truncate">@${c.username}</div>${c.description ? `<div class="text-xs text-muted-foreground mt-1 line-clamp-2">${c.description}</div>` : ''}</div></div><div class="mt-3 flex gap-2"><button onclick="deleteCharacter(${c.id})" class="flex-1 inline-flex items-center justify-center rounded-md border border-destructive text-destructive hover:bg-destructive hover:text-white h-8 px-3 text-sm transition-colors">Delete</button></div></div>`).join('') } catch (e) { showToast('Load failed: ' + e.message, 'error') } },
+                    deleteCharacter = async (id) => { if (!confirm('Delete this character card?')) return; try { const r = await apiRequest(`/api/characters/${id}`, { method: 'DELETE' }); if (!r) return; const d = await r.json(); if (d.success) { showToast('Deleted', 'success'); await loadCharacters() } else { showToast('Delete failed', 'error') } } catch (e) { showToast('Delete failed: ' + e.message, 'error') } },
+                    loadCallLogicConfig = async () => { try { const r = await apiRequest('/api/call-logic/config'); if (!r) return; const d = await r.json(); if (d.success && d.config) { $('cfgCallLogic').value = d.config.call_logic || 'random' } else { console.error('Call logic config data format error:', d) } } catch (e) { console.error('Failed to load call logic config:', e) } },
+                    saveCallLogicConfig = async () => { try { const r = await apiRequest('/api/call-logic/config', { method: 'POST', body: JSON.stringify({ call_logic: $('cfgCallLogic').value }) }); if (!r) return; const d = await r.json(); if (d.success) { showToast('Call logic config saved successfully', 'success') } else { showToast('Save failed', 'error') } } catch (e) { showToast('Save failed: ' + e.message, 'error') } },
+                    switchTab = t => { const cap = n => n.charAt(0).toUpperCase() + n.slice(1);['tokens', 'settings', 'logs', 'generate'].forEach(n => { const active = n === t; $(`panel${cap(n)}`).classList.toggle('hidden', !active); $(`tab${cap(n)}`).classList.toggle('border-primary', active); $(`tab${cap(n)}`).classList.toggle('text-primary', active); $(`tab${cap(n)}`).classList.toggle('border-transparent', !active); $(`tab${cap(n)}`).classList.toggle('text-muted-foreground', !active) }); if (t === 'settings') { loadAdminConfig(); loadProxyConfig(); loadPowProxyConfig(); loadWatermarkFreeConfig(); loadCacheConfig(); loadGenerationTimeout(); loadATAutoRefreshConfig(); loadCallLogicConfig() } else if (t === 'logs') { loadLogs() } };
+                // 自适应生成面板 iframe 高度
+                window.addEventListener('message', (event) => {
+                    const data = event.data || {};
+                    if (data.type === 'sora-generate-height' && typeof data.height === 'number') {
+                        const iframe = document.getElementById('generateFrame');
+                        if (iframe) {
+                            const nextH = Math.max(560, Math.ceil(data.height) + 8);
+                            iframe.style.height = `${nextH}px`;
+                        }
+                    }
+                });
+
+                // POW Proxy Configuration functions
+                loadPowProxyConfig = async () => {
+                    try {
+                        const r = await apiRequest('/api/pow-proxy/config');
+                        if (!r) return;
+                        const d = await r.json();
+                        if (d.success && d.config) {
+                            $('cfgPowProxyEnabled').checked = d.config.pow_proxy_enabled || false;
+                            $('cfgPowProxyUrl').value = d.config.pow_proxy_url || '';
+                        } else {
+                            console.error('POW proxy config data format error:', d);
+                        }
+                    } catch (e) {
+                        console.error('Failed to load POW proxy config:', e);
+                    }
+                },
+
+                    savePowProxyConfig = async () => {
+                        try {
+                            const r = await apiRequest('/api/pow-proxy/config', {
+                                method: 'POST',
+                                body: JSON.stringify({
+                                    pow_proxy_enabled: $('cfgPowProxyEnabled').checked,
+                                    pow_proxy_url: $('cfgPowProxyUrl').value.trim()
+                                })
+                            });
+                            if (!r) return;
+                            const d = await r.json();
+                            if (d.success) {
+                                showToast('POW proxy config saved successfully', 'success');
+                            } else {
+                                showToast('Save failed', 'error');
+                            }
+                        } catch (e) {
+                            showToast('Save failed: ' + e.message, 'error');
+                        }
+                    },
+
+                    // Status filter dropdown functions
+                    toggleStatusFilterDropdown = () => {
+                        const dropdown = $('statusFilterDropdown');
+                        if (!dropdown) return;
+                        dropdown.classList.toggle('hidden');
+                    },
+
+                    selectStatusFilter = (status) => {
+                        const label = $('statusFilterLabel');
+                        const dropdown = $('statusFilterDropdown');
+
+                        // Update label
+                        if (label) {
+                            label.textContent = status === '' ? 'All' : status;
+                        }
+
+                        // Hide dropdown
+                        if (dropdown) {
+                            dropdown.classList.add('hidden');
+                        }
+
+                        // Apply filter (placeholder - can be enhanced to actually filter tokens)
+                        // For now, just close the dropdown
+                    },
+
+                    // Close dropdown when clicking outside
+                    document.addEventListener('click', (e) => {
+                        const dropdown = $('statusFilterDropdown');
+                        const btn = $('statusFilterBtn');
+                        if (!dropdown || !btn) return;
+                        if (!dropdown.classList.contains('hidden') && !btn.contains(e.target) && !dropdown.contains(e.target)) {
+                            dropdown.classList.add('hidden');
+                        }
+                    });
+
+                window.addEventListener('DOMContentLoaded', () => { checkAuth(); refreshTokens(); loadATAutoRefreshConfig(); loadPowProxyConfig() });
     </script>
 </body>
 
