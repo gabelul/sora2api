@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Sora2 Generate Panel</title>
+  <title>Sora2 生成面板</title>
   <style>
     :root {
       --bg: radial-gradient(circle at 18% 20%, #f6f8ff, #eef2ff 38%, #e0f2fe 68%, #f8fbff);
@@ -553,7 +553,7 @@
       display: flex;
       flex-direction: column;
       gap: 10px;
-      /* Cancel内部滚动：避免page(s)面出现“双滚动items” */
+      /* 取消内部滚动：避免页面出现“双滚动条” */
       max-height: none;
       overflow: visible;
       padding-right: 0;
@@ -721,7 +721,7 @@
       100% { transform: translateY(0) scale(1); color: inherit; text-shadow: none; }
     }
     #previewCount.count-flash { animation: count-flash 1.9s ease-out both; }
-    /* 批量Download按钮：加载态扫光 + 轻回弹（避免“点了没反应”） */
+    /* 批量下载按钮：加载态扫光 + 轻回弹（避免“点了没反应”） */
     @keyframes batch-btn-shimmer{
       0%{transform:translateX(-140%) skewX(-18deg);opacity:0}
       18%{opacity:.92}
@@ -968,7 +968,7 @@
       font-size:12px;
       margin-bottom:6px;
     }
-    /* chip 变体：用于更明确的Status提示 */
+    /* chip 变体：用于更明确的状态提示 */
     .chip.ok {
       background: #dcfce7;
       border-color: #22c55e;
@@ -1063,7 +1063,7 @@
     .file-chip:hover { border-color: rgba(29,78,216,0.55); }
     .file-chip:hover .close { color: #0b0f19; }
 
-    /* 单次/同提示批量：快切 + 批量摘要（避免隐藏在高级设置里导致误Actions） */
+    /* 单次/同提示批量：快切 + 批量摘要（避免隐藏在高级设置里导致误操作） */
     .upload-head {
       display: flex;
       align-items: flex-start;
@@ -1110,7 +1110,7 @@
       backdrop-filter: blur(8px);
       -webkit-backdrop-filter: blur(8px);
     }
-    /* 四种Generate模式：统一为“分段选择器”Style，减少 radio/pill 的割裂感 */
+    /* 四种生成模式：统一为“分段选择器”风格，减少 radio/pill 的割裂感 */
     .segmented.radio {
       position: relative;
       flex-wrap: wrap;
@@ -1212,7 +1212,7 @@
     .quick-plan { display: inline-flex; align-items: center; gap: 6px; flex-wrap: wrap; }
     .quick-plan .chip { margin: 0; }
 
-    /* 轻量 Toast（generate page(s)面不依赖 Tailwind，必须有自己的样式） */
+    /* 轻量 Toast（generate 页面不依赖 Tailwind，必须有自己的样式） */
     .toast-host {
       position: fixed;
       right: 18px;
@@ -1271,7 +1271,7 @@
     .toast.toast-error { background: rgba(239,68,68,0.92); }
     .toast.toast-info { background: rgba(37,99,235,0.92); }
     .toast.toast-warn { background: rgba(245,158,11,0.92); color: #0b0f19; border-color: rgba(15,23,42,0.12); }
-    /* 统一滚动items样式：细滚动items + 更高可辨识度（可访问性友好） */
+    /* 统一滚动条样式：细滚动条 + 更高可辨识度（可访问性友好） */
     .tasks,
     .preview-grid,
     .log {
@@ -1341,7 +1341,7 @@
     }
     .muted { color: var(--muted); }
     .hint { font-size: 12px; color: var(--muted); margin-top: 6px; }
-    /* 任务步骤items（3 段Status：In Progress / Success / Failed） */
+    /* 任务步骤条（3 段状态：进行中 / 成功 / 失败） */
     .task-steps { display:grid; grid-template-columns: repeat(3, 1fr); gap:8px; margin-top:8px; }
     .task-step {
       height:8px;
@@ -1425,7 +1425,7 @@
       padding: 6px 10px;
     }
 
-    /* 分镜（Storyboard）Edit器：复用 multi-row 视觉，补充更适合长提示的 textarea 与编号 */
+    /* 分镜（Storyboard）编辑器：复用 multi-row 视觉，补充更适合长提示的 textarea 与编号 */
     .sb-meta-row {
       display:flex;
       gap: 8px;
@@ -1474,10 +1474,10 @@
 <body>
   <div class="page">
     <div class="header">
-      <h1>Sora2 Generate Panel</h1>
+      <h1>Sora2 生成面板</h1>
       <a href="https://linux.do/u/kongt/summary" target="_blank" class="badge" style="text-decoration: none; cursor: pointer;">@kongt</a>
     </div>
-    <p class="sub">左侧拖拽/挂载角色卡，中间编写Prompt并上传素材，右侧查看任务Progress与结果预览。</p>
+    <p class="sub">左侧拖拽/挂载角色卡，中间编写提示词并上传素材，右侧查看任务进度与结果预览。</p>
     <div class="content-scroll full-bleed">
       <div class="inner">
         <div class="layout">
@@ -1487,7 +1487,7 @@
           <div class="role-head-actions">
             <span id="roleCount" class="muted role-count">0</span>
             <button id="btnRoleDense" class="pill-btn" type="button" title="切换密集模式（角色很多时更好用）">密集</button>
-            <button id="btnReloadRoles" class="pill-btn" type="button">Refresh</button>
+            <button id="btnReloadRoles" class="pill-btn" type="button">刷新</button>
           </div>
         </div>
 
@@ -1498,18 +1498,18 @@
               <path d="M21 21l-4.3-4.3"></path>
             </svg>
           </span>
-          <input id="roleSearch" class="input input-with-icon" placeholder="Search 角色名 / @username / cameo_id / character_id" autocomplete="off">
-          <button id="roleSearchClear" class="input-clear" type="button" aria-label="ClearSearch" title="Clear">×</button>
+          <input id="roleSearch" class="input input-with-icon" placeholder="搜索 角色名 / @username / cameo_id / character_id" autocomplete="off">
+          <button id="roleSearchClear" class="input-clear" type="button" aria-label="清空搜索" title="清空">×</button>
         </div>
 
         <div class="role-bar">
           <div id="roleFilterBar" class="role-filter" aria-label="角色过滤">
-            <button class="pill-btn active" type="button" data-role-filter="all">All</button>
+            <button class="pill-btn active" type="button" data-role-filter="all">全部</button>
             <button class="pill-btn" type="button" data-role-filter="attached" title="只看当前模式已挂载的角色（单次/同提示/多提示/分镜各自独立）">已挂载</button>
             <button class="pill-btn" type="button" data-role-filter="fav">收藏</button>
           </div>
-          <select id="roleSort" class="select role-sort" aria-label="角色Sort">
-            <option value="smart">智能Sort</option>
+          <select id="roleSort" class="select role-sort" aria-label="角色排序">
+            <option value="smart">智能排序</option>
             <option value="newest">最新创建</option>
             <option value="oldest">最早创建</option>
             <option value="name_asc">名称 A→Z</option>
@@ -1518,7 +1518,7 @@
         </div>
 
         <div id="roleList" class="roles" aria-live="polite"></div>
-        <p class="hint">拖拽到Prompt输入框，或点“挂载”。收藏会置顶；密集模式更适合角色很多的库。</p>
+        <p class="hint">拖拽到提示词输入框，或点“挂载”。收藏会置顶；密集模式更适合角色很多的库。</p>
           </aside>
           <div class="main-column">
         <section class="card form-panel" style="display:flex; flex-direction:column; gap:10px; padding:12px 14px; max-width:1120px; margin:0 auto;">
@@ -1535,31 +1535,31 @@
 
           <div class="form-grid" style="margin-top:4px; grid-template-columns: 1fr;">
             <div>
-              <label class="section-title" for="model" style="margin-bottom:4px;">Model</label>
+              <label class="section-title" for="model" style="margin-bottom:4px;">模型</label>
               <select id="model" class="select">
-                <optgroup label="标准版Video">
-                  <option value="sora2-landscape-25s">LandscapeVideo 25 s</option>
-                  <option value="sora2-landscape-15s">LandscapeVideo 15 s</option>
-                  <option value="sora2-landscape-10s">LandscapeVideo 10 s</option>
-                  <option value="sora2-portrait-25s">PortraitVideo 25 s</option>
-                  <option value="sora2-portrait-15s">PortraitVideo 15 s</option>
-                  <option value="sora2-portrait-10s">PortraitVideo 10 s</option>
+                <optgroup label="标准版视频">
+                  <option value="sora2-landscape-25s">横屏视频 25 秒</option>
+                  <option value="sora2-landscape-15s">横屏视频 15 秒</option>
+                  <option value="sora2-landscape-10s">横屏视频 10 秒</option>
+                  <option value="sora2-portrait-25s">竖屏视频 25 秒</option>
+                  <option value="sora2-portrait-15s">竖屏视频 15 秒</option>
+                  <option value="sora2-portrait-10s">竖屏视频 10 秒</option>
                 </optgroup>
-                <optgroup label="Pro版Video">
-                  <option value="sora2pro-landscape-25s">LandscapeVideo 25 s (Pro)</option>
-                  <option value="sora2pro-landscape-15s">LandscapeVideo 15 s (Pro)</option>
-                  <option value="sora2pro-landscape-10s">LandscapeVideo 10 s (Pro)</option>
-                  <option value="sora2pro-portrait-25s">PortraitVideo 25 s (Pro)</option>
-                  <option value="sora2pro-portrait-15s">PortraitVideo 15 s (Pro)</option>
-                  <option value="sora2pro-portrait-10s">PortraitVideo 10 s (Pro)</option>
+                <optgroup label="Pro版视频">
+                  <option value="sora2pro-landscape-25s">横屏视频 25 秒 (Pro)</option>
+                  <option value="sora2pro-landscape-15s">横屏视频 15 秒 (Pro)</option>
+                  <option value="sora2pro-landscape-10s">横屏视频 10 秒 (Pro)</option>
+                  <option value="sora2pro-portrait-25s">竖屏视频 25 秒 (Pro)</option>
+                  <option value="sora2pro-portrait-15s">竖屏视频 15 秒 (Pro)</option>
+                  <option value="sora2pro-portrait-10s">竖屏视频 10 秒 (Pro)</option>
                 </optgroup>
-                <optgroup label="Pro HD版Video">
-                  <option value="sora2pro-hd-landscape-15s">LandscapeVideo 15 s (Pro HD)</option>
-                  <option value="sora2pro-hd-landscape-10s">LandscapeVideo 10 s (Pro HD)</option>
-                  <option value="sora2pro-hd-portrait-15s">PortraitVideo 15 s (Pro HD)</option>
-                  <option value="sora2pro-hd-portrait-10s">PortraitVideo 10 s (Pro HD)</option>
+                <optgroup label="Pro HD版视频">
+                  <option value="sora2pro-hd-landscape-15s">横屏视频 15 秒 (Pro HD)</option>
+                  <option value="sora2pro-hd-landscape-10s">横屏视频 10 秒 (Pro HD)</option>
+                  <option value="sora2pro-hd-portrait-15s">竖屏视频 15 秒 (Pro HD)</option>
+                  <option value="sora2pro-hd-portrait-10s">竖屏视频 10 秒 (Pro HD)</option>
                 </optgroup>
-                <optgroup label="Image">
+                <optgroup label="图片">
                   <option value="gpt-image">方图 360×360</option>
                   <option value="gpt-image-landscape">横图 540×360</option>
                   <option value="gpt-image-portrait">竖图 360×540</option>
@@ -1571,21 +1571,21 @@
           <div class="upload-toolbar" id="modeToolbar" style="margin-top:4px;">
             <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
               <span class="muted" style="font-weight:900;">模式</span>
-              <div class="segmented radio" id="batchModeBar" role="radiogroup" aria-label="Generate模式选择">
+              <div class="segmented radio" id="batchModeBar" role="radiogroup" aria-label="生成模式选择">
                 <input type="radio" name="batchType" id="batchTypeSingle" value="single" checked>
-                <label class="seg-opt" for="batchTypeSingle" title="单次：只创建 1 items任务（取第 1 个文件）">
+                <label class="seg-opt" for="batchTypeSingle" title="单次：只创建 1 条任务（取第 1 个文件）">
                   <span class="seg-title">单次</span>
-                  <span class="seg-sub">1 items</span>
+                  <span class="seg-sub">1 条</span>
                 </label>
 
                 <input type="radio" name="batchType" id="batchTypeSamePrompt" value="same_prompt_files">
-                <label class="seg-opt" for="batchTypeSamePrompt" title="同提示批量：多文件Total享同一提示；可设置每文件Generate份数">
+                <label class="seg-opt" for="batchTypeSamePrompt" title="同提示批量：多文件共享同一提示；可设置每文件生成份数">
                   <span class="seg-title">同提示</span>
                   <span class="seg-sub">多文件</span>
                 </label>
 
                 <input type="radio" name="batchType" id="batchTypeMultiPrompt" value="multi_prompt">
-                <label class="seg-opt" for="batchTypeMultiPrompt" title="多提示批量：每items提示各自Generate，可给某行附带文件">
+                <label class="seg-opt" for="batchTypeMultiPrompt" title="多提示批量：每条提示各自生成，可给某行附带文件">
                   <span class="seg-title">多提示</span>
                   <span class="seg-sub">按行</span>
                 </label>
@@ -1597,7 +1597,7 @@
                 </label>
 
                 <input type="radio" name="batchType" id="batchTypeCharacter" value="character">
-                <label class="seg-opt" for="batchTypeCharacter" title="角色卡：上传Video创建角色卡，None需Prompt">
+                <label class="seg-opt" for="batchTypeCharacter" title="角色卡：上传视频创建角色卡，无需提示词">
                   <span class="seg-title">角色卡</span>
                   <span class="seg-sub">创建</span>
                 </label>
@@ -1606,12 +1606,12 @@
           </div>
 
           <div id="promptBlock">
-            <label class="section-title" for="prompt" style="margin-bottom:4px;">Prompt（支持拖拽角色卡）</label>
-            <textarea id="prompt" placeholder="英文更稳定，可写动作/Duration/镜头等" style="min-height:170px; max-width: 1120px;"></textarea>
-            <div class="hint" id="promptDraftHint" style="display:none;color:#16a34a;">已自动Save草稿</div>
+            <label class="section-title" for="prompt" style="margin-bottom:4px;">提示词（支持拖拽角色卡）</label>
+            <textarea id="prompt" placeholder="英文更稳定，可写动作/时长/镜头等" style="min-height:170px; max-width: 1120px;"></textarea>
+            <div class="hint" id="promptDraftHint" style="display:none;color:#16a34a;">已自动保存草稿</div>
             <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin-top:8px;">
               <div id="attachedRoles" class="chips" style="margin-top:0;"></div>
-              <button type="button" id="btnClearMainRoles" class="pill-btn" style="margin-left:auto;">Clear角色</button>
+              <button type="button" id="btnClearMainRoles" class="pill-btn" style="margin-left:auto;">清空角色</button>
             </div>
             <div id="promptHints" class="chips"></div>
           </div>
@@ -1622,21 +1622,21 @@
               <button class="pill-btn" data-snippet="cinematic lighting, 4k, RAW">电影光感</button>
               <button class="pill-btn" data-snippet="slow motion, 60fps">慢动作</button>
               <button class="pill-btn" data-snippet="ultra wide shot">广角</button>
-              <button class="pill-btn" data-snippet="15 seconds">15 s</button>
+              <button class="pill-btn" data-snippet="15 seconds">15 秒</button>
               <button class="pill-btn" data-snippet="masterpiece, highly detailed">高细节</button>
             </div>
             <div class="section-title" style="margin:12px 0 6px;">批量工具 / 模板</div>
             <div class="meta-bar">
               <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
                 <span style="font-weight:900; color:#0f172a;">默认份数</span>
-                <span class="muted">Import/导出模板、套用到All</span>
+                <span class="muted">导入/导出模板、套用到全部</span>
               </div>
             <div class="meta-actions" id="batchMetaActions">
-              <span class="muted" id="globalCountLabel">Generate份数</span>
+              <span class="muted" id="globalCountLabel">生成份数</span>
               <input id="batchConcurrency" class="input" type="number" min="1" max="9999" step="1" value="2" style="width:100px;">
-              <button id="btnApplyGlobalCountToAll" class="pill-btn" style="display:none;" title="将当前默认份数应用到所有“多提示/分镜”行">套用到All</button>
+              <button id="btnApplyGlobalCountToAll" class="pill-btn" style="display:none;" title="将当前默认份数应用到所有“多提示/分镜”行">套用到全部</button>
               <button id="btnExportBatch" class="pill-btn">导出批量模板</button>
-              <button id="btnImportBatch" class="pill-btn">Import批量模板</button>
+              <button id="btnImportBatch" class="pill-btn">导入批量模板</button>
             </div>
               <input id="importBatchFile" type="file" accept=".json" style="display:none;">
             </div>
@@ -1644,7 +1644,7 @@
               <div class="section-title" style="margin-bottom:6px;">全局角色（仅多提示模式生效）</div>
               <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
                 <div id="multiAttachedRoles" class="chips"></div>
-                <button type="button" id="btnMultiClearRoles" class="pill-btn" style="margin-left:auto;">Clear全局角色</button>
+                <button type="button" id="btnMultiClearRoles" class="pill-btn" style="margin-left:auto;">清空全局角色</button>
               </div>
               <div class="hint">提示：点击左侧角色卡“挂载”，选择“全局（本模式）”。不会影响单次/同提示。</div>
             </div>
@@ -1656,9 +1656,9 @@
                 <span class="muted">镜头数</span>
                 <input id="storyboardShotCount" class="input" type="number" min="1" max="200" step="1" value="8" style="width:110px;">
                 <button type="button" id="btnApplyStoryboardCount" class="pill-btn">应用</button>
-                <span class="muted" title="分镜会一次性创建All任务并并发发送（不做限流）">并发Generate</span>
-                <button type="button" id="btnStoryboardFromPrompt" class="pill-btn" title="把“主提示框”按行拆成分镜：每一行 = 一镜（空行会被忽略）">从主提示按行Import</button>
-                <button type="button" id="btnStoryboardClear" class="pill-btn">Clear分镜</button>
+                <span class="muted" title="分镜会一次性创建全部任务并并发发送（不做限流）">并发生成</span>
+                <button type="button" id="btnStoryboardFromPrompt" class="pill-btn" title="把“主提示框”按行拆成分镜：每一行 = 一镜（空行会被忽略）">从主提示按行导入</button>
+                <button type="button" id="btnStoryboardClear" class="pill-btn">清空分镜</button>
               </div>
               <div class="hint">建议：先在左侧挂载角色（全局一致），再写每一镜发生的变化；也可以把角色卡拖拽到某一镜文本框，给该镜追加角色。</div>
               <div style="margin-top:10px;">
@@ -1666,7 +1666,7 @@
                 <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
                   <div id="storyboardAttachedRoles" class="chips"></div>
                   <button type="button" id="btnStoryboardScopeRoles" class="pill-btn" title="将“全局角色”从某些分镜中排除（这些分镜后续不再受全局自动挂载控制）">排除分镜</button>
-                  <button type="button" id="btnStoryboardClearRoles" class="pill-btn" style="margin-left:auto;">Clear全局角色</button>
+                  <button type="button" id="btnStoryboardClearRoles" class="pill-btn" style="margin-left:auto;">清空全局角色</button>
                 </div>
                 <div class="hint">提示：点击左侧角色卡“挂载”，选择“全局（本模式）”。不会影响单次/同提示。</div>
               </div>
@@ -1679,8 +1679,8 @@
             <div id="multiPromptActions" style="display:none; margin-top:4px; display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
               <button type="button" id="btnAddPrompt" class="pill-btn">新增提示</button>
               <div id="inlineActionBar" style="display:flex; gap:8px; margin-left:auto;">
-                 <button class="btn" id="btnSend" style="padding:10px 16px;" title="快捷键：Ctrl + Enter">开始Generate</button>
-                 <button class="btn btn-secondary" id="btnClear" style="padding:10px 16px;">Clear输出</button>
+                 <button class="btn" id="btnSend" style="padding:10px 16px;" title="快捷键：Ctrl + Enter">开始生成</button>
+                 <button class="btn btn-secondary" id="btnClear" style="padding:10px 16px;">清空输出</button>
               </div>
             </div>
           </div>
@@ -1690,11 +1690,11 @@
           <div class="upload-head">
             <div>
               <div class="upload-title">上传素材</div>
-              <div class="upload-sub">单次：只使用 1 个文件；同提示批量：多文件Total享同一Prompt（每个文件可Generate多份）</div>
+              <div class="upload-sub">单次：只使用 1 个文件；同提示批量：多文件共享同一提示词（每个文件可生成多份）</div>
             </div>
             <div class="upload-actions">
-              <button class="btn" id="btnSendPrimary" title="快捷键：Ctrl + Enter">开始Generate</button>
-              <button class="btn btn-secondary" id="btnClearPrimary">Clear输出</button>
+              <button class="btn" id="btnSendPrimary" title="快捷键：Ctrl + Enter">开始生成</button>
+              <button class="btn btn-secondary" id="btnClearPrimary">清空输出</button>
             </div>
           </div>
           <div class="upload-toolbar" id="uploadToolbar">
@@ -1703,7 +1703,7 @@
                 <span class="muted">每个文件份数</span>
                 <div class="stepper">
                   <button type="button" class="pill-btn" id="quickCountDec">-</button>
-                  <input id="quickCount" type="number" min="1" max="9999" step="1" value="2" aria-label="每个文件Generate份数">
+                  <input id="quickCount" type="number" min="1" max="9999" step="1" value="2" aria-label="每个文件生成份数">
                   <button type="button" class="pill-btn" id="quickCountInc">+</button>
                 </div>
               </div>
@@ -1720,21 +1720,21 @@
             <div id="filePreviewMedia" class="file-preview-media"></div>
             <div class="file-preview-info">
               <div class="file-preview-title">
-                <span id="filePreviewName" class="file-preview-name">未Select file</span>
+                <span id="filePreviewName" class="file-preview-name">未选择文件</span>
                 <span id="filePreviewKind" class="chip info">素材</span>
               </div>
               <div id="filePreviewMeta" class="file-preview-meta"></div>
               <div id="filePreviewHints" class="file-preview-warnings"></div>
               <div id="filePreviewList" class="file-preview-list" style="display:none;"></div>
               <div class="file-preview-actions">
-                <button id="btnClearFiles" class="pill-btn" type="button" style="display:none;">Clear文件</button>
-                <button id="btnUseRecommendedModel" class="pill-btn" style="display:none;">切换到推荐Model</button>
+                <button id="btnClearFiles" class="pill-btn" type="button" style="display:none;">清空文件</button>
+                <button id="btnUseRecommendedModel" class="pill-btn" style="display:none;">切换到推荐模型</button>
               </div>
             </div>
           </div>
           <div id="uxBanner" class="banner" style="display:none;"></div>
           <div style="display:flex; justify-content:space-between; gap:12px; flex-wrap:wrap; font-size:12px; color:#475569; padding:0 2px;">
-            <span>Video建议 3~10 s；批量时可多选文件；同提示多文件：Total享同一提示；多提示批量：文本每行一items。</span>
+            <span>视频建议 3~10 秒；批量时可多选文件；同提示多文件：共享同一提示；多提示批量：文本每行一条。</span>
           </div>
         </section>
 
@@ -1742,7 +1742,7 @@
           <div class="section-title task-header">
             <div class="task-header-left">
               <div class="task-title-group">
-                <span>任务Progress / 结果预览</span>
+                <span>任务进度 / 结果预览</span>
                 <span class="muted" id="taskCount">0 个任务</span>
               </div>
             </div>
@@ -1755,8 +1755,8 @@
               <div class="task-actions-bar">
                 <button id="btnOnlyRunning" class="pill-btn">仅运行中</button>
                 <button id="btnPreviewDense" class="pill-btn">预览密集</button>
-                <button id="btnClearDone" class="pill-btn">清理Failed任务</button>
-                <button id="btnClearAll" class="pill-btn">AllClear</button>
+                <button id="btnClearDone" class="pill-btn">清理失败任务</button>
+                <button id="btnClearAll" class="pill-btn">全部清空</button>
               </div>
             </div>
           </div>
@@ -1766,12 +1766,12 @@
           <div id="tabPanelPreview" class="tab-panel" style="margin-top:10px;">
             <div class="chips" id="previewFilterBar" style="display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-bottom:10px;">
               <span class="muted" style="font-weight:900;">过滤</span>
-              <button class="pill-btn active" type="button" data-preview-filter="all" title="显示All媒体">All</button>
-              <button class="pill-btn" type="button" data-preview-filter="video" title="只看Video结果">Video</button>
-              <button class="pill-btn" type="button" data-preview-filter="image" title="只看Image结果">Image</button>
+              <button class="pill-btn active" type="button" data-preview-filter="all" title="显示全部媒体">全部</button>
+              <button class="pill-btn" type="button" data-preview-filter="video" title="只看视频结果">视频</button>
+              <button class="pill-btn" type="button" data-preview-filter="image" title="只看图片结果">图片</button>
               <button class="pill-btn" type="button" data-preview-filter="storyboard" title="只看分镜任务的结果">分镜</button>
               <span class="muted" id="previewCount" style="margin-left:auto;"></span>
-              <button id="btnPreviewBatchDownload" class="pill-btn" type="button" title="批量Download当前过滤的预览结果：点击=打包ZIP（推荐，适配 IDM/浏览器拦截）；Shift+点击=多文件Download" style="margin-left:8px;">批量Download</button>
+              <button id="btnPreviewBatchDownload" class="pill-btn" type="button" title="批量下载当前过滤的预览结果：点击=打包ZIP（推荐，适配 IDM/浏览器拦截）；Shift+点击=多文件下载" style="margin-left:8px;">批量下载</button>
             </div>
             <div id="previewGrid" class="preview-grid"></div>
           </div>
@@ -1779,7 +1779,7 @@
             <div style="display:flex; align-items:center; gap:8px; margin-bottom:8px; flex-wrap:wrap;" id="logActions">
               <div style="font-weight:700;">任务日志</div>
               <div style="margin-left:auto; display:flex; gap:6px; align-items:center;">
-                <button id="btnCopyTaskLog" class="pill-btn">Copy当前任务日志</button>
+                <button id="btnCopyTaskLog" class="pill-btn">复制当前任务日志</button>
               </div>
             </div>
             <div class="log-layout" style="display:flex; gap:12px; align-items:stretch; min-height:320px;">
@@ -1791,7 +1791,7 @@
                   <span class="muted" id="logDetailMeta" style="margin-left:8px;"></span>
                 </div>
                 <div class="log-card-body">
-                  <pre class="log" id="logDetailContent">暂None日志</pre>
+                  <pre class="log" id="logDetailContent">暂无日志</pre>
                 </div>
               </div>
             </div>
@@ -1811,11 +1811,11 @@
           <span class="meta" id="previewModalMeta"></span>
           <div class="modal-actions">
             <button id="btnPreviewOpenNew" class="pill-btn">新标签打开</button>
-            <button id="btnPreviewCopyLink" class="pill-btn">Copy链接</button>
-            <button id="btnPreviewCopyHtml" class="pill-btn">CopyHTML</button>
-            <a id="previewModalDownload" class="pill-btn" download target="_blank" rel="noreferrer">Download</a>
+            <button id="btnPreviewCopyLink" class="pill-btn">复制链接</button>
+            <button id="btnPreviewCopyHtml" class="pill-btn">复制HTML</button>
+            <a id="previewModalDownload" class="pill-btn" download target="_blank" rel="noreferrer">下载</a>
             <button id="btnPreviewLocateTask" class="pill-btn">定位任务</button>
-            <button id="btnPreviewClose" class="pill-btn">Close</button>
+            <button id="btnPreviewClose" class="pill-btn">关闭</button>
           </div>
         </div>
         <div class="modal-body">
@@ -1825,20 +1825,20 @@
     </div>
     <div id="editStoryboardModal" class="preview-modal" aria-hidden="true">
       <div class="backdrop" data-close="1"></div>
-      <div class="modal-card" role="dialog" aria-label="修改分镜Prompt" style="width: min(860px, 96vw);">
+      <div class="modal-card" role="dialog" aria-label="修改分镜提示词" style="width: min(860px, 96vw);">
         <div class="modal-head">
           <span class="task-tag-chip storyboard" id="editStoryboardModalBadge" style="display:none;"></span>
-          <span class="meta" id="editStoryboardModalMeta">修改分镜Prompt（仅影响当前分镜任务）</span>
+          <span class="meta" id="editStoryboardModalMeta">修改分镜提示词（仅影响当前分镜任务）</span>
           <div class="modal-actions">
-            <button id="btnEditStoryboardCancel" class="pill-btn">Cancel</button>
-            <button id="btnEditStoryboardRetry" class="pill-btn active">Save并重试</button>
+            <button id="btnEditStoryboardCancel" class="pill-btn">取消</button>
+            <button id="btnEditStoryboardRetry" class="pill-btn active">保存并重试</button>
           </div>
         </div>
         <div class="modal-body">
           <div class="muted" style="font-size:12px; margin-bottom:8px;">
-            只会重试当前分镜，不会影响其它分镜。快捷键：Ctrl + Enter Save并重试。
+            只会重试当前分镜，不会影响其它分镜。快捷键：Ctrl + Enter 保存并重试。
           </div>
-          <textarea id="editStoryboardTextarea" class="input" placeholder="请修改这items分镜Prompt（建议用更安全的表达方式）" style="min-height:220px;"></textarea>
+          <textarea id="editStoryboardTextarea" class="input" placeholder="请修改这条分镜提示词（建议用更安全的表达方式）" style="min-height:220px;"></textarea>
         </div>
       </div>
     </div>
